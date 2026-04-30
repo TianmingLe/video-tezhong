@@ -20,3 +20,17 @@ report_generate:
     知识点（JSON）：{knowledge_points_json}
     任务：生成结构化 Markdown 报告，包含：视频信息、TL;DR、知识点、评论、可执行建议。
 
+kb_aggregation_template:
+  system: "你是一个知识库编辑助手。请输出 Markdown。"
+  user: |
+    输入为多个视频的知识点集合（JSON）：{knowledge_points_json}
+    任务：将零散知识点聚合为体系化大纲，去重并分类，输出一个可直接阅读的知识库总结（Markdown）。
+
+kb_aggregation_fallback:
+  system: ""
+  user: |
+    当 LLM 聚合失败时，使用规则模板生成 kb_summary：
+    1. 按知识点标题分组去重（文本相似度>0.85视为重复）
+    2. 按出现频次排序，取Top 20知识点
+    3. 标签统计：统计所有analysis中的tags，取出现≥2次的标签
+    4. 输出固定Markdown结构（标题+列表+标签云）
