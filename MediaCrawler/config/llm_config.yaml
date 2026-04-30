@@ -1,0 +1,9 @@
+default_model: ""
+default_base_url: ""
+timeout_s: 60
+temperature: 0.2
+max_tokens: 1200
+cache_ttl_seconds: 1800
+cache_type: memory
+prompt_file: config/prompts.yaml
+

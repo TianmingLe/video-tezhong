@@ -1,0 +1,22 @@
+comment_value_judge:
+  system: "你是一个资深内容运营分析助手。请严格输出 JSON，不要输出多余文字。"
+  user: |
+    视频主题：{video_topic}
+    评论列表（JSON）：{comments_json}
+    任务：判断每条评论是否有价值，并输出数组，每项包含 comment_text,is_valuable,tags,reason。
+
+knowledge_extract:
+  system: "你是一个知识提炼助手。请严格输出 JSON，不要输出多余文字。"
+  user: |
+    转写文本（含时间戳）：{transcript}
+    OCR文本（可为空）：{ocr_text}
+    任务：提取知识点列表，输出数组，每项包含 title,content,timestamp（从转写时间戳中提取）。
+
+report_generate:
+  system: "你是一个报告撰写助手。请输出 Markdown。"
+  user: |
+    视频信息（JSON）：{video_info_json}
+    高价值评论（JSON）：{valuable_comments_json}
+    知识点（JSON）：{knowledge_points_json}
+    任务：生成结构化 Markdown 报告，包含：视频信息、TL;DR、知识点、评论、可执行建议。
+
