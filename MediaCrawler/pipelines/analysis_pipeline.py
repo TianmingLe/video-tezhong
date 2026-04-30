@@ -70,6 +70,7 @@ class AnalysisPipeline:
             aweme_id = str(mvp.get("aweme_id") or "")
             source_keyword = str(mvp.get("source_keyword") or "")
             liked_count = mvp.get("liked_count")
+            comments = mvp.get("comments")
 
             analyzer = self._analyzer or self._build_default_analyzer()
             analysis = await analyzer.analyze(
@@ -78,7 +79,7 @@ class AnalysisPipeline:
                 api_key=api_key,
                 video_topic=video_url,
                 transcript=transcript,
-                comments=[],
+                comments=comments,
                 ocr_text="",
             )
 
