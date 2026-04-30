@@ -2,8 +2,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict
 
-import yaml
-
 
 @dataclass(frozen=True)
 class PromptTemplate:
@@ -17,6 +15,11 @@ class PromptStore:
 
     @staticmethod
     def from_files(llm_config_path: str) -> "PromptStore":
+        try:
+            import yaml  # type: ignore
+        except Exception as e:
+            raise ModuleNotFoundError("PyYAML is required for loading llm prompt templates") from e
+
         cfg = yaml.safe_load(Path(llm_config_path).read_text(encoding="utf-8")) or {}
         prompt_file = cfg.get("prompt_file")
         if not prompt_file:
@@ -31,4 +34,3 @@ class PromptStore:
 
     def get(self, name: str) -> PromptTemplate:
         return self._templates[name]
-

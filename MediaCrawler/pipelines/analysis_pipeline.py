@@ -2,8 +2,6 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Optional, Protocol
 
-import yaml
-
 from services.llm_cache import LLMCache
 from services.llm_analyzer import LLMAnalyzer, LLMRuntimeConfig
 from services.llm_prompts import PromptStore
@@ -40,6 +38,11 @@ class AnalysisPipeline:
         path.write_text(text, encoding="utf-8")
 
     def _build_default_analyzer(self) -> LLMAnalyzer:
+        try:
+            import yaml  # type: ignore
+        except Exception as e:
+            raise ModuleNotFoundError("PyYAML is required for loading llm_config.yaml") from e
+
         cfg = yaml.safe_load(Path(self.llm_config_path).read_text(encoding="utf-8")) or {}
         store = PromptStore.from_files(self.llm_config_path)
 
