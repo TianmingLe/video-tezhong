@@ -126,7 +126,7 @@ async def main() -> None:
             from services.batch_processor import BatchProcessor
             from services.knowledge_base import KnowledgeBase
             from services.run_context import RunContext
-            from services.search_reader import read_topn_search_results
+            from services.search_reader import read_search_results
 
             keyword = str(getattr(args, "keywords", "") or "").split(",")[0].strip() or "keywords"
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -135,15 +135,35 @@ async def main() -> None:
 
             ctx = RunContext(run_root=Path("."), run_id=run_id)
 
-            candidates = read_topn_search_results(limit=int(getattr(args, "limit", 1)))
-            print(f'[INFO] 搜索关键词: "{keyword}", 找到 {len(candidates)} 个视频')
-            print(f"[INFO] 按点赞排序，取 Top {min(len(candidates), int(getattr(args, 'limit', 1)))} 进行处理")
+            if not bool(getattr(args, "dry_run", False)):
+                config.PLATFORM = "dy"
+                config.CRAWLER_TYPE = "search"
+                config.SAVE_DATA_OPTION = "jsonl"
+                config.KEYWORDS = str(getattr(args, "keywords", "") or "")
+
+                crawler = CrawlerFactory.create_crawler(platform=config.PLATFORM)
+                await crawler.start()
+
+            all_candidates = read_search_results()
+            limit_value = int(getattr(args, "limit", 1))
+            if limit_value < 1:
+                limit_value = 1
+            if limit_value > 50:
+                limit_value = 50
+
+            print(f'[INFO] 搜索关键词: "{keyword}", 找到 {len(all_candidates)} 个视频')
+            print(f"[INFO] 按点赞排序，取 Top {min(len(all_candidates), limit_value)} 进行处理")
 
             bp = BatchProcessor(run_context=ctx)
             await bp.run(
-                candidates=candidates,
-                limit=int(getattr(args, "limit", 1)),
+                candidates=all_candidates,
+                limit=limit_value,
                 dry_run=bool(getattr(args, "dry_run", False)),
+                output_format=str(getattr(args, "output_format", "all") or "all"),
+                enable_llm=bool(getattr(args, "enable_llm", False)),
+                llm_model=str(getattr(args, "llm_model", "") or ""),
+                llm_base_url=str(getattr(args, "llm_base_url", "") or ""),
+                llm_api_key=str(getattr(args, "llm_api_key", "") or "") or os.getenv("OPENAI_API_KEY", ""),
                 concurrent_limit=int(getattr(config, "BATCH_CONCURRENT_LIMIT", 3)),
                 max_retries=int(getattr(config, "BATCH_MAX_RETRIES", 3)),
                 retry_delay=float(getattr(config, "BATCH_RETRY_DELAY_SECONDS", 2)),

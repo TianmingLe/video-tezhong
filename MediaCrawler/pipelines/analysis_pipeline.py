@@ -19,7 +19,7 @@ class AnalysisPipeline:
         analyzer: Optional[AnalyzerLike] = None,
         llm_config_path: str = "config/llm_config.yaml",
         output_analysis_file: Path = Path("results/mvp_analysis.json"),
-        output_report_file: Path = Path("results/mvp_report.md"),
+        output_report_file: Optional[Path] = Path("results/mvp_report.md"),
         input_mvp_output_file: Path = Path("results/mvp_output.json"),
     ) -> None:
         self.llm_config_path = llm_config_path
@@ -67,6 +67,9 @@ class AnalysisPipeline:
             mvp = json.loads(self.input_mvp_output_file.read_text(encoding="utf-8"))
             video_url = str(mvp.get("video_url") or "")
             transcript = str(mvp.get("transcript") or "")
+            aweme_id = str(mvp.get("aweme_id") or "")
+            source_keyword = str(mvp.get("source_keyword") or "")
+            liked_count = mvp.get("liked_count")
 
             analyzer = self._analyzer or self._build_default_analyzer()
             analysis = await analyzer.analyze(
@@ -81,19 +84,23 @@ class AnalysisPipeline:
 
             analysis_out = {
                 "video_url": video_url,
+                "aweme_id": aweme_id,
+                "source_keyword": source_keyword,
+                "liked_count": liked_count,
                 "status": analysis.get("status", "success"),
                 **analysis,
             }
             self._write_json(self.output_analysis_file, analysis_out)
 
-            md = render_report(
-                video_url=video_url,
-                transcript=transcript,
-                valuable_comments=(analysis.get("comment_value_judge") or {}).get("items") or [],
-                knowledge_points=analysis.get("knowledge_points") or [],
-                suggestions=analysis.get("suggestions") or [],
-            )
-            self._write_text(self.output_report_file, md)
+            if self.output_report_file is not None:
+                md = render_report(
+                    video_url=video_url,
+                    transcript=transcript,
+                    valuable_comments=(analysis.get("comment_value_judge") or {}).get("items") or [],
+                    knowledge_points=analysis.get("knowledge_points") or [],
+                    suggestions=analysis.get("suggestions") or [],
+                )
+                self._write_text(self.output_report_file, md)
 
             return analysis_out
 
@@ -104,5 +111,6 @@ class AnalysisPipeline:
                 "error_message": str(e),
             }
             self._write_json(self.output_analysis_file, out)
-            self._write_text(self.output_report_file, f"# MVP 分析报告\n\n分析失败：{e}\n")
+            if self.output_report_file is not None:
+                self._write_text(self.output_report_file, f"# MVP 分析报告\n\n分析失败：{e}\n")
             return out

@@ -57,6 +57,12 @@ def read_topn_search_results(*, limit: int) -> List[VideoCandidate]:
     if limit > 50:
         limit = 50
 
+    items = read_search_results()
+    items.sort(key=lambda x: x.liked_count, reverse=True)
+    return items[:limit]
+
+
+def read_search_results() -> List[VideoCandidate]:
     source_file = _find_latest_search_contents_file()
     lines = source_file.read_text(encoding="utf-8").splitlines()
     items: List[VideoCandidate] = []
@@ -74,6 +80,4 @@ def read_topn_search_results(*, limit: int) -> List[VideoCandidate]:
         if c:
             items.append(c)
 
-    items.sort(key=lambda x: x.liked_count, reverse=True)
-    return items[:limit]
-
+    return items
