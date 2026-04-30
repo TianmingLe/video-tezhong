@@ -152,6 +152,35 @@ uv run main.py --platform xhs --lt qrcode --type detail
 uv run main.py --help
 ```
 
+## 🧪 OmniScraper Pro 扩展：dy / detail / mvp Pipeline（Phase 1）
+
+该模式用于验证“抓取 → 下载 → ASR 转写 → 输出结构化结果 → 清理视频但保留链接”的命令行闭环，当前以抖音（dy）detail 模式作为验证平台。
+
+前置依赖：
+
+- FFmpeg（Whisper 与 yt-dlp 依赖）
+
+运行示例：
+
+```shell
+# 进入项目根目录
+cd MediaCrawler
+
+# 指定抖音视频 URL 或视频 ID
+python main.py --platform dy --pipeline mvp --specified_id <视频ID或URL>
+
+# 查看结果
+cat ../results/mvp_output.json
+```
+
+输出字段包含：
+
+- video_url：视频详情页 URL
+- local_path：本地下载路径（转写完成后会删除文件，但字段保留用于溯源）
+- transcript：带时间戳的转写文本
+- status：success / error
+- source_contents_file：pipeline 读取的源 JSONL 文件路径
+
 <details>
 <summary>🖥️ <strong>WebUI 可视化操作界面</strong></summary>
 
