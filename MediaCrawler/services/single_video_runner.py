@@ -9,6 +9,8 @@ import config
 from pipelines.analysis_pipeline import AnalysisPipeline
 from services.asr_transcribe import ASRService
 from services.comment_processor import CommentProcessor
+from services.ocr_postprocessor import OCRPostprocessor
+from services.ocr_service import OCRService, OCRServiceUnavailable, load_ocr_cache, save_ocr_cache
 from services.run_context import RunContext
 from services.search_reader import VideoCandidate
 from services.video_download import VideoDownloadService
@@ -28,6 +30,8 @@ class SingleVideoRunner:
         self.download_service = VideoDownloadService()
         self.asr_service = ASRService(model_name="small")
         self.comment_processor = CommentProcessor()
+        self.ocr_postprocessor = OCRPostprocessor()
+        self.ocr_service = None
 
     async def run_one(
         self,
@@ -53,7 +57,9 @@ class SingleVideoRunner:
         local_path: Optional[Path] = None
         try:
             local_path = await self.download_service.download(candidate.video_download_url or candidate.aweme_url, download_dir)
-            transcript = await self.asr_service.transcribe(local_path, language="zh")
+            asr_task = asyncio.create_task(self.asr_service.transcribe(local_path, language="zh"))
+            ocr_task = asyncio.create_task(self._run_ocr(aweme_id=candidate.aweme_id, video_path=local_path))
+            transcript, (ocr_text, ocr_summary) = await asyncio.gather(asr_task, ocr_task)
 
             comments_struct = None
             if config.ENABLE_GET_COMMENTS:
@@ -89,6 +95,8 @@ class SingleVideoRunner:
                 "liked_count": candidate.liked_count,
                 "local_path": str(local_path),
                 "transcript": transcript,
+                "ocr_text": ocr_text,
+                "ocr_summary": ocr_summary,
                 "comments": comments_struct,
                 "status": "success",
             }
@@ -141,6 +149,44 @@ class SingleVideoRunner:
     def _comments_cache_dir(self) -> Path:
         base = Path(config.SAVE_DATA_PATH) if config.SAVE_DATA_PATH else Path("data")
         return base / "douyin" / "jsonl"
+
+    def _ocr_cache_dir(self) -> Path:
+        base = Path(config.SAVE_DATA_PATH) if config.SAVE_DATA_PATH else Path("data")
+        return base / "douyin" / "ocr_cache"
+
+    async def _run_ocr(self, *, aweme_id: str, video_path: Path):
+        if not config.OCR_ENABLED:
+            return None, None
+        if not aweme_id:
+            return None, None
+
+        cache_dir = self._ocr_cache_dir()
+        cached = load_ocr_cache(cache_dir=cache_dir, aweme_id=aweme_id, model=config.OCR_MODEL, interval_sec=int(config.OCR_INTERVAL_SEC))
+        if cached and isinstance(cached.get("postprocess"), dict):
+            pp = cached.get("postprocess") or {}
+            return pp.get("ocr_text"), pp.get("ocr_summary")
+
+        svc = self.ocr_service or OCRService(model=config.OCR_MODEL, use_gpu=bool(config.OCR_USE_GPU))
+        try:
+            blocks = await asyncio.wait_for(
+                asyncio.to_thread(svc.extract_text_from_video, video_path=video_path, interval_sec=int(config.OCR_INTERVAL_SEC)),
+                timeout=float(getattr(config, "OCR_TIMEOUT_SECONDS", 120)),
+            )
+        except OCRServiceUnavailable:
+            return None, None
+        except Exception:
+            return None, None
+
+        pp = self.ocr_postprocessor.postprocess(list(blocks or []), token_budget_chars=9000)
+        payload = {
+            "aweme_id": aweme_id,
+            "interval_sec": int(config.OCR_INTERVAL_SEC),
+            "model": config.OCR_MODEL,
+            "blocks": pp.get("blocks") or [],
+            "postprocess": {"ocr_text": pp.get("ocr_text") or "", "ocr_summary": pp.get("ocr_summary") or {}},
+        }
+        save_ocr_cache(cache_dir=cache_dir, aweme_id=aweme_id, payload=payload)
+        return pp.get("ocr_text") or "", pp.get("ocr_summary") or {}
 
     def _load_cached_comments(self, *, aweme_id: str) -> list[Dict[str, Any]]:
         folder = self._comments_cache_dir()
