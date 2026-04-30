@@ -131,6 +131,9 @@ CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = 10
 # If the old version of the project uses db, you need to refer to schema/tables.sql line 287 to add table fields.
 ENABLE_GET_SUB_COMMENTS = False
 
+TOP_COMMENTS_LIMIT = 20
+TOP_REPLIES_LIMIT = 5
+
 # word cloud related
 # Whether to enable generating comment word clouds
 ENABLE_GET_WORDCLOUD = False

@@ -333,6 +333,31 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
                 rich_help_panel="Comment Configuration",
             ),
         ] = config.CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES,
+        top_comments: Annotated[
+            int,
+            typer.Option(
+                "--top-comments",
+                help="Top liked root comments to keep for LLM analysis",
+                rich_help_panel="Comment Configuration",
+            ),
+        ] = config.TOP_COMMENTS_LIMIT,
+        top_replies: Annotated[
+            int,
+            typer.Option(
+                "--top-replies",
+                help="Top liked replies to keep per root comment for LLM analysis",
+                rich_help_panel="Comment Configuration",
+            ),
+        ] = config.TOP_REPLIES_LIMIT,
+        force_regrab: Annotated[
+            str,
+            typer.Option(
+                "--force-regrab",
+                help="Force re-grab comments online even if cache exists, supports yes/true/t/y/1 or no/false/f/n/0",
+                rich_help_panel="Comment Configuration",
+                show_default=True,
+            ),
+        ] = "false",
         max_concurrency_num: Annotated[
             int,
             typer.Option(
@@ -383,6 +408,7 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
         enable_ip_proxy_value = _to_bool(enable_ip_proxy)
         enable_llm_value = _to_bool(enable_llm)
         dry_run_value = _to_bool(dry_run)
+        force_regrab_value = _to_bool(force_regrab)
         init_db_value = init_db.value if init_db else None
 
         safe_limit = int(limit) if int(limit) > 0 else 1
@@ -392,6 +418,14 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
         safe_comment_depth = int(comment_depth)
         if safe_comment_depth not in (1, 2):
             safe_comment_depth = 1
+
+        safe_top_comments = int(top_comments) if int(top_comments) > 0 else 20
+        if safe_top_comments > 50:
+            safe_top_comments = 50
+
+        safe_top_replies = int(top_replies) if int(top_replies) > 0 else 5
+        if safe_top_replies > 20:
+            safe_top_replies = 20
 
         # Parse specified_id and creator_id into lists
         specified_id_list = [id.strip() for id in specified_id.split(",") if id.strip()] if specified_id else []
@@ -410,6 +444,8 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
         config.SAVE_DATA_OPTION = save_data_option.value
         config.COOKIES = cookies
         config.CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = max_comments_count_singlenotes
+        config.TOP_COMMENTS_LIMIT = safe_top_comments
+        config.TOP_REPLIES_LIMIT = safe_top_replies
         config.MAX_CONCURRENCY_NUM = max_concurrency_num
         config.SAVE_DATA_PATH = save_data_path
         config.ENABLE_IP_PROXY = enable_ip_proxy_value
@@ -465,6 +501,9 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
             comment_depth=safe_comment_depth,
             output_format=output_format,
             dry_run=dry_run_value,
+            top_comments=safe_top_comments,
+            top_replies=safe_top_replies,
+            force_regrab=force_regrab_value,
             enable_llm=config.ENABLE_LLM,
             llm_model=config.LLM_MODEL,
             llm_base_url=config.LLM_BASE_URL,
