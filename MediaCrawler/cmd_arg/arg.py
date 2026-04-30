@@ -358,6 +358,40 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
                 show_default=True,
             ),
         ] = "false",
+        ocr_enabled: Annotated[
+            str,
+            typer.Option(
+                "--ocr-enabled",
+                help="Enable OCR extraction from video frames, supports yes/true/t/y/1 or no/false/f/n/0",
+                rich_help_panel="OCR Configuration",
+                show_default=True,
+            ),
+        ] = str(config.OCR_ENABLED),
+        ocr_interval: Annotated[
+            int,
+            typer.Option(
+                "--ocr-interval",
+                help="Extract 1 frame every N seconds for OCR",
+                rich_help_panel="OCR Configuration",
+            ),
+        ] = config.OCR_INTERVAL_SEC,
+        ocr_model: Annotated[
+            str,
+            typer.Option(
+                "--ocr-model",
+                help="OCR model name/tag (e.g. ppocr_v4)",
+                rich_help_panel="OCR Configuration",
+            ),
+        ] = config.OCR_MODEL,
+        ocr_use_gpu: Annotated[
+            str,
+            typer.Option(
+                "--ocr-use-gpu",
+                help="Use GPU for OCR, supports yes/true/t/y/1 or no/false/f/n/0",
+                rich_help_panel="OCR Configuration",
+                show_default=True,
+            ),
+        ] = str(config.OCR_USE_GPU),
         max_concurrency_num: Annotated[
             int,
             typer.Option(
@@ -409,6 +443,8 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
         enable_llm_value = _to_bool(enable_llm)
         dry_run_value = _to_bool(dry_run)
         force_regrab_value = _to_bool(force_regrab)
+        ocr_enabled_value = _to_bool(ocr_enabled)
+        ocr_use_gpu_value = _to_bool(ocr_use_gpu)
         init_db_value = init_db.value if init_db else None
 
         safe_limit = int(limit) if int(limit) > 0 else 1
@@ -426,6 +462,8 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
         safe_top_replies = int(top_replies) if int(top_replies) > 0 else 5
         if safe_top_replies > 20:
             safe_top_replies = 20
+
+        safe_ocr_interval = int(ocr_interval) if int(ocr_interval) > 0 else int(config.OCR_INTERVAL_SEC)
 
         # Parse specified_id and creator_id into lists
         specified_id_list = [id.strip() for id in specified_id.split(",") if id.strip()] if specified_id else []
@@ -446,6 +484,10 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
         config.CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = max_comments_count_singlenotes
         config.TOP_COMMENTS_LIMIT = safe_top_comments
         config.TOP_REPLIES_LIMIT = safe_top_replies
+        config.OCR_ENABLED = ocr_enabled_value
+        config.OCR_INTERVAL_SEC = safe_ocr_interval
+        config.OCR_MODEL = ocr_model
+        config.OCR_USE_GPU = ocr_use_gpu_value
         config.MAX_CONCURRENCY_NUM = max_concurrency_num
         config.SAVE_DATA_PATH = save_data_path
         config.ENABLE_IP_PROXY = enable_ip_proxy_value
@@ -504,6 +546,10 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
             top_comments=safe_top_comments,
             top_replies=safe_top_replies,
             force_regrab=force_regrab_value,
+            ocr_enabled=config.OCR_ENABLED,
+            ocr_interval=config.OCR_INTERVAL_SEC,
+            ocr_model=config.OCR_MODEL,
+            ocr_use_gpu=config.OCR_USE_GPU,
             enable_llm=config.ENABLE_LLM,
             llm_model=config.LLM_MODEL,
             llm_base_url=config.LLM_BASE_URL,

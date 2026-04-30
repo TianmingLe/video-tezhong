@@ -106,6 +106,12 @@ BATCH_CONCURRENT_LIMIT = 3
 BATCH_MAX_RETRIES = 3
 BATCH_RETRY_DELAY_SECONDS = 2
 
+OCR_ENABLED = False
+OCR_INTERVAL_SEC = 5
+OCR_MODEL = "ppocr_v4"
+OCR_USE_GPU = False
+OCR_TIMEOUT_SECONDS = 120
+
 # Browser file configuration cached by the user's browser
 USER_DATA_DIR = "%s_user_data_dir"  # %s will be replaced by platform name
 
