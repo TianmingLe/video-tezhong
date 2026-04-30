@@ -4,6 +4,9 @@ from pathlib import Path
 
 def test_search_reader_topn(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+    import config
+
+    config.PLATFORM = "dy"
     p = Path("data/douyin/jsonl")
     p.mkdir(parents=True, exist_ok=True)
     f = p / "search_contents_2099-01-01.jsonl"
@@ -40,4 +43,3 @@ def test_search_reader_topn(tmp_path, monkeypatch):
 
     top = read_topn_search_results(limit=1)
     assert top[0].aweme_id == "2"
-

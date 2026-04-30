@@ -50,12 +50,18 @@ def base_data_dir() -> Path:
     return Path(config.SAVE_DATA_PATH) if config.SAVE_DATA_PATH else Path("data")
 
 
+def storage_platform_dirname(*, platform: str) -> str:
+    if platform == "dy":
+        return "douyin"
+    return platform
+
+
 def jsonl_dir(*, platform: str) -> Path:
-    return base_data_dir() / platform / "jsonl"
+    return base_data_dir() / storage_platform_dirname(platform=platform) / "jsonl"
 
 
 def ocr_cache_dir(*, platform: str) -> Path:
-    return base_data_dir() / platform / "ocr_cache"
+    return base_data_dir() / storage_platform_dirname(platform=platform) / "ocr_cache"
 
 
 def search_rank_key(*, platform: str, content: Dict[str, Any]) -> int:
@@ -184,4 +190,3 @@ def candidate_from_content(*, platform: str, content: Dict[str, Any]) -> Optiona
         }
 
     return None
-

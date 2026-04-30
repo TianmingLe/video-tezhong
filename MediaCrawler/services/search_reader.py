@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import config
+from services.platform_adapter import candidate_from_content, jsonl_dir
 
 
 @dataclass(frozen=True)
@@ -21,7 +22,7 @@ def _base_data_dir() -> Path:
 
 def _find_latest_search_contents_file() -> Path:
     base = _base_data_dir()
-    folder = base / "douyin" / "jsonl"
+    folder = jsonl_dir(platform=str(config.PLATFORM or "dy"))
     pattern = "search_contents_*.jsonl"
     candidates = list(folder.glob(pattern))
     if not candidates:
@@ -32,22 +33,17 @@ def _find_latest_search_contents_file() -> Path:
 
 
 def _parse_candidate(obj: Dict[str, Any]) -> Optional[VideoCandidate]:
-    aweme_id = str(obj.get("aweme_id") or "").strip()
-    if not aweme_id:
+    platform = str(config.PLATFORM or "dy")
+    mapped = candidate_from_content(platform=platform, content=obj)
+    if not mapped:
         return None
 
-    liked_raw = obj.get("liked_count")
-    try:
-        liked = int(liked_raw) if liked_raw is not None else 0
-    except Exception:
-        liked = 0
-
     return VideoCandidate(
-        aweme_id=aweme_id,
-        aweme_url=str(obj.get("aweme_url") or ""),
-        video_download_url=str(obj.get("video_download_url") or ""),
-        liked_count=liked,
-        source_keyword=str(obj.get("source_keyword") or ""),
+        aweme_id=str(mapped.get("video_id") or ""),
+        aweme_url=str(mapped.get("video_url") or ""),
+        video_download_url=str(mapped.get("video_download_url") or ""),
+        liked_count=int(mapped.get("rank") or 0),
+        source_keyword=str(mapped.get("source_keyword") or ""),
     )
 
 
