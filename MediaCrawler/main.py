@@ -36,37 +36,42 @@ import cmd_arg
 import config
 import os
 import shutil
-from database import db
 from base.base_crawler import AbstractCrawler
-from media_platform.bilibili import BilibiliCrawler
-from media_platform.douyin import DouYinCrawler
-from media_platform.kuaishou import KuaishouCrawler
-from media_platform.tieba import TieBaCrawler
-from media_platform.weibo import WeiboCrawler
-from media_platform.xhs import XiaoHongShuCrawler
-from media_platform.zhihu import ZhihuCrawler
-from tools.async_file_writer import AsyncFileWriter
-from var import crawler_type_var
 
 
 class CrawlerFactory:
-    CRAWLERS: dict[str, Type[AbstractCrawler]] = {
-        "xhs": XiaoHongShuCrawler,
-        "dy": DouYinCrawler,
-        "ks": KuaishouCrawler,
-        "bili": BilibiliCrawler,
-        "wb": WeiboCrawler,
-        "tieba": TieBaCrawler,
-        "zhihu": ZhihuCrawler,
-    }
-
     @staticmethod
     def create_crawler(platform: str) -> AbstractCrawler:
-        crawler_class = CrawlerFactory.CRAWLERS.get(platform)
-        if not crawler_class:
-            supported = ", ".join(sorted(CrawlerFactory.CRAWLERS))
-            raise ValueError(f"Invalid media platform: {platform!r}. Supported: {supported}")
-        return crawler_class()
+        if platform == "xhs":
+            from media_platform.xhs import XiaoHongShuCrawler
+
+            return XiaoHongShuCrawler()
+        if platform == "dy":
+            from media_platform.douyin import DouYinCrawler
+
+            return DouYinCrawler()
+        if platform == "ks":
+            from media_platform.kuaishou import KuaishouCrawler
+
+            return KuaishouCrawler()
+        if platform == "bili":
+            from media_platform.bilibili import BilibiliCrawler
+
+            return BilibiliCrawler()
+        if platform == "wb":
+            from media_platform.weibo import WeiboCrawler
+
+            return WeiboCrawler()
+        if platform == "tieba":
+            from media_platform.tieba import TieBaCrawler
+
+            return TieBaCrawler()
+        if platform == "zhihu":
+            from media_platform.zhihu import ZhihuCrawler
+
+            return ZhihuCrawler()
+
+        raise ValueError(f"Invalid media platform: {platform!r}. Supported: bili, dy, ks, tieba, wb, xhs, zhihu")
 
 
 crawler: Optional[AbstractCrawler] = None
@@ -90,6 +95,9 @@ async def _generate_wordcloud_if_needed() -> None:
         return
 
     try:
+        from tools.async_file_writer import AsyncFileWriter
+        from var import crawler_type_var
+
         file_writer = AsyncFileWriter(
             platform=config.PLATFORM,
             crawler_type=crawler_type_var.get(),
@@ -104,11 +112,49 @@ async def main() -> None:
 
     args = await cmd_arg.parse_cmd()
     if args.init_db:
+        from database import db
+
         await db.init_db(args.init_db)
         print(f"Database {args.init_db} initialized successfully.")
         return
 
     if getattr(args, "pipeline", "") == "mvp":
+        if getattr(args, "type", "detail") == "search":
+            from datetime import datetime
+            from pathlib import Path
+
+            from services.batch_processor import BatchProcessor
+            from services.knowledge_base import KnowledgeBase
+            from services.run_context import RunContext
+            from services.search_reader import read_topn_search_results
+
+            keyword = str(getattr(args, "keywords", "") or "").split(",")[0].strip() or "keywords"
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            run_id = f"{ts}_{keyword}"
+            run_id = "".join(ch if ch.isalnum() or ch in ("_", "-", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十") else "_" for ch in run_id)
+
+            ctx = RunContext(run_root=Path("."), run_id=run_id)
+
+            candidates = read_topn_search_results(limit=int(getattr(args, "limit", 1)))
+            print(f'[INFO] 搜索关键词: "{keyword}", 找到 {len(candidates)} 个视频')
+            print(f"[INFO] 按点赞排序，取 Top {min(len(candidates), int(getattr(args, 'limit', 1)))} 进行处理")
+
+            bp = BatchProcessor(run_context=ctx)
+            await bp.run(
+                candidates=candidates,
+                limit=int(getattr(args, "limit", 1)),
+                dry_run=bool(getattr(args, "dry_run", False)),
+                concurrent_limit=int(getattr(config, "BATCH_CONCURRENT_LIMIT", 3)),
+                max_retries=int(getattr(config, "BATCH_MAX_RETRIES", 3)),
+                retry_delay=float(getattr(config, "BATCH_RETRY_DELAY_SECONDS", 2)),
+            )
+
+            if not bool(getattr(args, "dry_run", False)):
+                kb = KnowledgeBase(run_dir=ctx.run_dir(), run_id=run_id)
+                kb.build(use_llm=False)
+                print(f"[SUCCESS] 知识库聚合完成: {ctx.kb_summary_path()}")
+            return
+
         if not getattr(args, "specified_id", ""):
             raise ValueError("mvp pipeline requires --specified_id")
 
@@ -116,7 +162,6 @@ async def main() -> None:
             print("[MVP] FFmpeg not found in PATH. Whisper/yt-dlp may fail without ffmpeg.")
 
         config.PLATFORM = "dy"
-        config.CRAWLER_TYPE = "detail"
         config.SAVE_DATA_OPTION = "jsonl"
 
         if getattr(args, "enable_llm", False):
@@ -179,7 +224,12 @@ async def async_cleanup() -> None:
                     print(f"[Main] Error closing browser context: {e}")
 
     if config.SAVE_DATA_OPTION in ("db", "sqlite"):
-        await db.close()
+        try:
+            from database import db
+
+            await db.close()
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     from tools.app_runner import run
