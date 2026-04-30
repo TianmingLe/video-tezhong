@@ -227,6 +227,39 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
                 rich_help_panel="Basic Configuration",
             ),
         ] = "",
+        enable_llm: Annotated[
+            str,
+            typer.Option(
+                "--enable-llm",
+                help="Enable LLM analysis pipeline, supports yes/true/t/y/1 or no/false/f/n/0",
+                rich_help_panel="LLM Configuration",
+                show_default=True,
+            ),
+        ] = str(config.ENABLE_LLM),
+        llm_model: Annotated[
+            str,
+            typer.Option(
+                "--llm-model",
+                help="LLM model name (user-provided string, e.g. THUDM/GLM-4.1V-9B-Thinking)",
+                rich_help_panel="LLM Configuration",
+            ),
+        ] = config.LLM_MODEL,
+        llm_base_url: Annotated[
+            str,
+            typer.Option(
+                "--llm-base-url",
+                help="OpenAI-compatible base_url (e.g. http://127.0.0.1:8000/v1)",
+                rich_help_panel="LLM Configuration",
+            ),
+        ] = config.LLM_BASE_URL,
+        llm_api_key: Annotated[
+            str,
+            typer.Option(
+                "--llm-api-key",
+                help="Optional API key for OpenAI-compatible service; if empty, read from env OPENAI_API_KEY",
+                rich_help_panel="LLM Configuration",
+            ),
+        ] = "",
         init_db: Annotated[
             Optional[InitDbOptionEnum],
             typer.Option(
@@ -315,6 +348,7 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
         enable_sub_comment = _to_bool(get_sub_comment)
         enable_headless = _to_bool(headless)
         enable_ip_proxy_value = _to_bool(enable_ip_proxy)
+        enable_llm_value = _to_bool(enable_llm)
         init_db_value = init_db.value if init_db else None
 
         # Parse specified_id and creator_id into lists
@@ -339,6 +373,10 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
         config.ENABLE_IP_PROXY = enable_ip_proxy_value
         config.IP_PROXY_POOL_COUNT = ip_proxy_pool_count
         config.IP_PROXY_PROVIDER_NAME = ip_proxy_provider_name
+        config.ENABLE_LLM = enable_llm_value
+        config.LLM_MODEL = llm_model
+        config.LLM_BASE_URL = llm_base_url
+        config.LLM_API_KEY = llm_api_key
 
         if pipeline == "mvp":
             config.CRAWLER_TYPE = CrawlerTypeEnum.DETAIL.value
@@ -373,6 +411,10 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
             lt=config.LOGIN_TYPE,
             type=config.CRAWLER_TYPE,
             pipeline=pipeline,
+            enable_llm=config.ENABLE_LLM,
+            llm_model=config.LLM_MODEL,
+            llm_base_url=config.LLM_BASE_URL,
+            llm_api_key=config.LLM_API_KEY,
             start=config.START_PAGE,
             keywords=config.KEYWORDS,
             get_comment=config.ENABLE_GET_COMMENTS,

@@ -34,6 +34,7 @@ from typing import Optional, Type
 
 import cmd_arg
 import config
+import os
 import shutil
 from database import db
 from base.base_crawler import AbstractCrawler
@@ -118,12 +119,34 @@ async def main() -> None:
         config.CRAWLER_TYPE = "detail"
         config.SAVE_DATA_OPTION = "jsonl"
 
+        if getattr(args, "enable_llm", False):
+            config.ENABLE_GET_COMMENTS = True
+
         specified_id = str(args.specified_id).split(",")[0].strip()
         from pipelines.mvp_pipeline import MVPPipeline
 
         pipeline = MVPPipeline(platform=config.PLATFORM)
         result = await pipeline.run(specified_id=specified_id)
         print(f"[MVP] status={result.get('status')} output=results/mvp_output.json")
+
+        if getattr(args, "enable_llm", False):
+            llm_model = str(getattr(args, "llm_model", "") or "")
+            llm_base_url = str(getattr(args, "llm_base_url", "") or "")
+            llm_api_key = str(getattr(args, "llm_api_key", "") or "") or os.getenv("OPENAI_API_KEY", "")
+
+            if not llm_model or not llm_base_url:
+                raise ValueError("enable-llm requires --llm-model and --llm-base-url (or set defaults in config)")
+
+            from pipelines.analysis_pipeline import AnalysisPipeline
+
+            analysis_pipeline = AnalysisPipeline()
+            analysis = await analysis_pipeline.run(
+                model=llm_model,
+                api_base=llm_base_url,
+                api_key=llm_api_key,
+            )
+            print(f"[LLM] status={analysis.get('status')} output=results/mvp_analysis.json report=results/mvp_report.md")
+
         return
 
     crawler = CrawlerFactory.create_crawler(platform=config.PLATFORM)

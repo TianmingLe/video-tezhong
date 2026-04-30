@@ -50,7 +50,6 @@ class MVPPipeline:
         config.PLATFORM = "dy"
         config.CRAWLER_TYPE = "detail"
         config.ENABLE_GET_MEIDAS = False
-        config.ENABLE_GET_COMMENTS = False
         config.DY_SPECIFIED_ID_LIST = [specified_id]
 
         from media_platform.douyin import DouYinCrawler
@@ -159,4 +158,3 @@ class MVPPipeline:
                     await asyncio.to_thread(local_path.unlink)
                 except Exception:
                     pass
-
