@@ -202,6 +202,92 @@ async def main() -> None:
             if not llm_model or not llm_base_url:
                 raise ValueError("enable-llm requires --llm-model and --llm-base-url (or set defaults in config)")
 
+            try:
+                import re
+                from pathlib import Path
+
+                from services.comment_processor import CommentProcessor
+
+                specified_raw = str(args.specified_id).split(",")[0].strip()
+                m = re.search(r"(\d{8,})", specified_raw)
+                aweme_id = m.group(1) if m else ""
+
+                if aweme_id and config.ENABLE_GET_COMMENTS:
+                    base = Path(config.SAVE_DATA_PATH) if config.SAVE_DATA_PATH else Path("data")
+                    folder = base / "douyin" / "jsonl"
+                    files = list(folder.glob("*_comments_*.jsonl"))
+                    files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+
+                    raw_comments = []
+                    for f in files:
+                        try:
+                            for ln in f.read_text(encoding="utf-8").splitlines():
+                                ln = ln.strip()
+                                if not ln:
+                                    continue
+                                obj = json.loads(ln)
+                                if isinstance(obj, dict) and str(obj.get("aweme_id") or "") == aweme_id:
+                                    raw_comments.append(obj)
+                        except Exception:
+                            continue
+                        if raw_comments:
+                            break
+
+                    if (not raw_comments) and bool(getattr(args, "force_regrab", False)):
+                        try:
+                            from media_platform.douyin.core import DouYinCrawler
+
+                            old_platform = config.PLATFORM
+                            old_crawler_type = config.CRAWLER_TYPE
+                            try:
+                                config.PLATFORM = "dy"
+                                config.CRAWLER_TYPE = "detail"
+                                config.DY_SPECIFIED_ID_LIST = [aweme_id]
+                                config.CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = int(getattr(args, "top_comments", config.TOP_COMMENTS_LIMIT))
+                                crawler = DouYinCrawler()
+                                await crawler.get_specified_awemes()
+                            finally:
+                                config.PLATFORM = old_platform
+                                config.CRAWLER_TYPE = old_crawler_type
+                        except Exception as e:
+                            print(f"[WARN] 评论抓取失败：{e}，将以空评论继续分析")
+
+                        raw_comments = []
+                        for f in files:
+                            try:
+                                for ln in f.read_text(encoding="utf-8").splitlines():
+                                    ln = ln.strip()
+                                    if not ln:
+                                        continue
+                                    obj = json.loads(ln)
+                                    if isinstance(obj, dict) and str(obj.get("aweme_id") or "") == aweme_id:
+                                        raw_comments.append(obj)
+                            except Exception:
+                                continue
+                            if raw_comments:
+                                break
+
+                    if raw_comments:
+                        processor = CommentProcessor()
+                        top_comments = int(getattr(args, "top_comments", config.TOP_COMMENTS_LIMIT) or config.TOP_COMMENTS_LIMIT)
+                        top_replies = int(getattr(args, "top_replies", config.TOP_REPLIES_LIMIT) or config.TOP_REPLIES_LIMIT)
+                        if not config.ENABLE_GET_SUB_COMMENTS:
+                            top_replies = 0
+                        comments_struct = processor.build(
+                            raw_comments=raw_comments,
+                            top_comments=top_comments,
+                            top_replies=top_replies,
+                            budget_chars=16000,
+                        )
+                        mvp_out_path = Path("results/mvp_output.json")
+                        if mvp_out_path.exists():
+                            mvp_out = json.loads(mvp_out_path.read_text(encoding="utf-8"))
+                            mvp_out["aweme_id"] = aweme_id
+                            mvp_out["comments"] = comments_struct
+                            mvp_out_path.write_text(json.dumps(mvp_out, ensure_ascii=False, indent=2), encoding="utf-8")
+            except Exception:
+                pass
+
             from pipelines.analysis_pipeline import AnalysisPipeline
 
             analysis_pipeline = AnalysisPipeline()
