@@ -11,7 +11,7 @@ knowledge_extract:
     转写文本（含时间戳）：{transcript}
     OCR文本（可为空）：{ocr_text}
     高价值评论（JSON，可为空）：{valuable_comments_json}
-    任务：提取知识点列表，输出数组，每项包含 title,content,timestamp（从转写时间戳中提取），并可参考高价值评论补充要点。
+    任务：提取知识点列表，输出数组。每项至少包含 title,content,timestamp（从转写时间戳中提取）。如可判断来源，请增加 source 字段（#口播/#画面/#评论）。
 
 community_insights:
   system: "你是一个社区舆情分析助手。请严格输出 JSON，不要输出多余文字。"

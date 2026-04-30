@@ -71,6 +71,7 @@ class AnalysisPipeline:
             source_keyword = str(mvp.get("source_keyword") or "")
             liked_count = mvp.get("liked_count")
             comments = mvp.get("comments")
+            ocr_text = mvp.get("ocr_text")
 
             analyzer = self._analyzer or self._build_default_analyzer()
             analysis = await analyzer.analyze(
@@ -80,7 +81,7 @@ class AnalysisPipeline:
                 video_topic=video_url,
                 transcript=transcript,
                 comments=comments,
-                ocr_text="",
+                ocr_text=str(ocr_text) if ocr_text is not None else None,
             )
 
             analysis_out = {

@@ -116,7 +116,7 @@ class LLMAnalyzer:
         video_topic: str,
         transcript: str,
         comments: Optional[Dict[str, Any]],
-        ocr_text: str,
+        ocr_text: Optional[str],
     ) -> Dict[str, Any]:
         """
         Phase 2（LLM 分析）：
@@ -192,7 +192,7 @@ class LLMAnalyzer:
 
         ke_user = ke_tpl.user.format(
             transcript=transcript,
-            ocr_text=ocr_text,
+            ocr_text=ocr_text or "",
             valuable_comments_json=valuable_comments_json,
         )
         ke = await self._call_json(
