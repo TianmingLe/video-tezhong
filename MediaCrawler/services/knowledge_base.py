@@ -86,6 +86,11 @@ class KnowledgeBase:
                     if isinstance(x, str) and x:
                         community_bag.append(("controversy", x))
 
+            ocr_summary = data.get("ocr_summary") or {}
+            ocr_key_texts = ocr_summary.get("key_texts") if isinstance(ocr_summary, dict) else None
+            if not isinstance(ocr_key_texts, list):
+                ocr_key_texts = []
+
             row = {
                 "aweme_id": aweme_id,
                 "video_url": video_url,
@@ -96,6 +101,11 @@ class KnowledgeBase:
                     "consensus": consensus[:3] if isinstance(consensus, list) else [],
                     "controversy": controversy[:3] if isinstance(controversy, list) else [],
                     "tags": tags[:10],
+                },
+                "ocr_summary": {
+                    "total_blocks": (ocr_summary.get("total_blocks") if isinstance(ocr_summary, dict) else None),
+                    "key_texts": ocr_key_texts[:10],
+                    "source_distribution": (ocr_summary.get("source_distribution") if isinstance(ocr_summary, dict) else None),
                 },
                 "analysis_file": f.name,
                 "report_file": report_file,
@@ -188,6 +198,21 @@ class KnowledgeBase:
         lines.append("### 争议")
         if controversy_set:
             for x in list(controversy_set)[:20]:
+                lines.append(f"- {x}")
+        else:
+            lines.append("- （无）")
+        lines.append("")
+
+        lines.append("## 画面文字（跨视频）")
+        ocr_texts = set()
+        for row in index_rows:
+            ks = (row.get("ocr_summary") or {}).get("key_texts") or []
+            if isinstance(ks, list):
+                for x in ks:
+                    if isinstance(x, str) and x:
+                        ocr_texts.add(x)
+        if ocr_texts:
+            for x in list(ocr_texts)[:30]:
                 lines.append(f"- {x}")
         else:
             lines.append("- （无）")

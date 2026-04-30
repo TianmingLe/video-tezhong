@@ -9,6 +9,7 @@ def render_report(
     knowledge_points: List[Dict[str, Any]],
     suggestions: List[str],
     community_insights: Dict[str, Any] | None = None,
+    ocr_summary: Dict[str, Any] | None = None,
 ) -> str:
     """
     将结构化分析结果渲染为 Markdown 报告。
@@ -24,6 +25,16 @@ def render_report(
 
     lines.append("## 视频信息")
     lines.append(f"- video_url: {video_url}")
+    lines.append("")
+
+    lines.append("## 🔤 画面文字要点")
+    osum = ocr_summary or {}
+    key_texts = osum.get("key_texts") or []
+    if isinstance(key_texts, list) and key_texts:
+        for t in key_texts:
+            lines.append(f"- {t}")
+    else:
+        lines.append("- （无）")
     lines.append("")
 
     lines.append("## 知识点")

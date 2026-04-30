@@ -72,6 +72,7 @@ class AnalysisPipeline:
             liked_count = mvp.get("liked_count")
             comments = mvp.get("comments")
             ocr_text = mvp.get("ocr_text")
+            ocr_summary = mvp.get("ocr_summary")
 
             analyzer = self._analyzer or self._build_default_analyzer()
             analysis = await analyzer.analyze(
@@ -89,6 +90,7 @@ class AnalysisPipeline:
                 "aweme_id": aweme_id,
                 "source_keyword": source_keyword,
                 "liked_count": liked_count,
+                "ocr_summary": ocr_summary,
                 "status": analysis.get("status", "success"),
                 **analysis,
             }
@@ -102,6 +104,7 @@ class AnalysisPipeline:
                     knowledge_points=analysis.get("knowledge_points") or [],
                     suggestions=analysis.get("suggestions") or [],
                     community_insights=analysis.get("community_insights") or {},
+                    ocr_summary=ocr_summary if isinstance(ocr_summary, dict) else {},
                 )
                 self._write_text(self.output_report_file, md)
 
