@@ -11,6 +11,7 @@ from services.asr_transcribe import ASRService
 from services.comment_processor import CommentProcessor
 from services.ocr_postprocessor import OCRPostprocessor
 from services.ocr_service import OCRService, OCRServiceUnavailable, load_ocr_cache, save_ocr_cache
+from services.platform_adapter import comment_owner_field, jsonl_dir, ocr_cache_dir
 from services.run_context import RunContext
 from services.search_reader import VideoCandidate
 from services.video_download import VideoDownloadService
@@ -147,12 +148,10 @@ class SingleVideoRunner:
                     pass
 
     def _comments_cache_dir(self) -> Path:
-        base = Path(config.SAVE_DATA_PATH) if config.SAVE_DATA_PATH else Path("data")
-        return base / "douyin" / "jsonl"
+        return jsonl_dir(platform=str(config.PLATFORM or "dy"))
 
     def _ocr_cache_dir(self) -> Path:
-        base = Path(config.SAVE_DATA_PATH) if config.SAVE_DATA_PATH else Path("data")
-        return base / "douyin" / "ocr_cache"
+        return ocr_cache_dir(platform=str(config.PLATFORM or "dy"))
 
     async def _run_ocr(self, *, aweme_id: str, video_path: Path):
         if not config.OCR_ENABLED:
@@ -193,6 +192,7 @@ class SingleVideoRunner:
         files = list(folder.glob("*_comments_*.jsonl"))
         files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
         out: list[Dict[str, Any]] = []
+        owner_field = comment_owner_field(platform=str(config.PLATFORM or "dy"))
         for f in files:
             try:
                 for ln in f.read_text(encoding="utf-8").splitlines():
@@ -200,7 +200,7 @@ class SingleVideoRunner:
                     if not ln:
                         continue
                     obj = json.loads(ln)
-                    if isinstance(obj, dict) and str(obj.get("aweme_id") or "") == aweme_id:
+                    if isinstance(obj, dict) and str(obj.get(owner_field) or "") == aweme_id:
                         out.append(obj)
             except Exception:
                 continue

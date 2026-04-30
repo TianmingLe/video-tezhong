@@ -7,6 +7,7 @@ import config
 
 def test_single_video_runner_writes_ocr_fields(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+    config.PLATFORM = "dy"
     config.OCR_ENABLED = True
     config.OCR_INTERVAL_SEC = 5
     config.OCR_MODEL = "ppocr_v4"
@@ -56,4 +57,3 @@ def test_single_video_runner_writes_ocr_fields(tmp_path, monkeypatch):
     saved = json.loads(ctx.output_path(kind="mvp_output", index=1, aweme_id="a").read_text(encoding="utf-8"))
     assert "ocr_text" in saved
     assert "ocr_summary" in saved
-

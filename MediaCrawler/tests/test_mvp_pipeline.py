@@ -89,11 +89,15 @@ def test_asr_service_transcribe_timestamped_text(tmp_path: Path, monkeypatch: py
 
 def test_mvp_pipeline_outputs_json_and_deletes_video(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.chdir(tmp_path)
+    import config
+
+    config.PLATFORM = "dy"
 
     data_dir = tmp_path / "data" / "douyin" / "jsonl"
     data_dir.mkdir(parents=True, exist_ok=True)
     source_file = data_dir / "detail_contents_2099-01-01.jsonl"
     content_item = {
+        "aweme_id": "123",
         "aweme_url": "https://www.douyin.com/video/123",
         "video_download_url": "https://example.com/direct.mp4",
     }
@@ -141,6 +145,9 @@ def test_mvp_pipeline_outputs_json_and_deletes_video(tmp_path: Path, monkeypatch
 
 def test_mvp_pipeline_error_code_on_invalid_url(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.chdir(tmp_path)
+    import config
+
+    config.PLATFORM = "dy"
 
     data_dir = tmp_path / "data" / "douyin" / "jsonl"
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -173,4 +180,3 @@ def test_mvp_pipeline_error_code_on_invalid_url(tmp_path: Path, monkeypatch: pyt
 
     assert output["status"] == "error"
     assert output["error_code"] == DownloadServiceErrorCode.INVALID_URL.value
-

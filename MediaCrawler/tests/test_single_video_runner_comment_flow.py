@@ -5,6 +5,11 @@ from pathlib import Path
 
 def test_single_video_runner_comment_cache_first(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+    import config
+
+    config.PLATFORM = "dy"
+    config.ENABLE_GET_COMMENTS = True
+    config.ENABLE_GET_SUB_COMMENTS = False
     Path("data/douyin/jsonl").mkdir(parents=True, exist_ok=True)
     Path("data/douyin/jsonl/detail_comments_2099-01-01.jsonl").write_text(
         json.dumps(
@@ -60,4 +65,3 @@ def test_single_video_runner_comment_cache_first(tmp_path, monkeypatch):
 
     mvp = json.loads(ctx.output_path(kind="mvp_output", index=1, aweme_id="a").read_text(encoding="utf-8"))
     assert "comments" in mvp
-
