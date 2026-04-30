@@ -227,6 +227,39 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
                 rich_help_panel="Basic Configuration",
             ),
         ] = "",
+        limit: Annotated[
+            int,
+            typer.Option(
+                "--limit",
+                help="Limit the number of videos to process in search mode (1-50)",
+                rich_help_panel="Basic Configuration",
+            ),
+        ] = 1,
+        comment_depth: Annotated[
+            int,
+            typer.Option(
+                "--comment-depth",
+                help="Comment depth: 1=only top-level, 2=include sub-comments",
+                rich_help_panel="Comment Configuration",
+            ),
+        ] = 1,
+        output_format: Annotated[
+            str,
+            typer.Option(
+                "--output-format",
+                help="Output format: jsonl|markdown|all",
+                rich_help_panel="Basic Configuration",
+            ),
+        ] = "all",
+        dry_run: Annotated[
+            str,
+            typer.Option(
+                "--dry-run",
+                help="Dry run mode: only plan, no download/asr/llm, supports yes/true/t/y/1 or no/false/f/n/0",
+                rich_help_panel="Basic Configuration",
+                show_default=True,
+            ),
+        ] = "false",
         enable_llm: Annotated[
             str,
             typer.Option(
@@ -349,7 +382,16 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
         enable_headless = _to_bool(headless)
         enable_ip_proxy_value = _to_bool(enable_ip_proxy)
         enable_llm_value = _to_bool(enable_llm)
+        dry_run_value = _to_bool(dry_run)
         init_db_value = init_db.value if init_db else None
+
+        safe_limit = int(limit) if int(limit) > 0 else 1
+        if safe_limit > 50:
+            safe_limit = 50
+
+        safe_comment_depth = int(comment_depth)
+        if safe_comment_depth not in (1, 2):
+            safe_comment_depth = 1
 
         # Parse specified_id and creator_id into lists
         specified_id_list = [id.strip() for id in specified_id.split(",") if id.strip()] if specified_id else []
@@ -379,7 +421,15 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
         config.LLM_API_KEY = llm_api_key
 
         if pipeline == "mvp":
-            config.CRAWLER_TYPE = CrawlerTypeEnum.DETAIL.value
+            if config.CRAWLER_TYPE not in (CrawlerTypeEnum.SEARCH.value, CrawlerTypeEnum.DETAIL.value):
+                config.CRAWLER_TYPE = CrawlerTypeEnum.DETAIL.value
+
+        if safe_comment_depth == 1:
+            config.ENABLE_GET_COMMENTS = True
+            config.ENABLE_GET_SUB_COMMENTS = False
+        elif safe_comment_depth == 2:
+            config.ENABLE_GET_COMMENTS = True
+            config.ENABLE_GET_SUB_COMMENTS = True
 
         # Set platform-specific ID lists for detail/creator mode
         if specified_id_list:
@@ -411,6 +461,10 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
             lt=config.LOGIN_TYPE,
             type=config.CRAWLER_TYPE,
             pipeline=pipeline,
+            limit=safe_limit,
+            comment_depth=safe_comment_depth,
+            output_format=output_format,
+            dry_run=dry_run_value,
             enable_llm=config.ENABLE_LLM,
             llm_model=config.LLM_MODEL,
             llm_base_url=config.LLM_BASE_URL,

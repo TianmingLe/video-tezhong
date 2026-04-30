@@ -101,6 +101,11 @@ LLM_BASE_URL = ""
 # API Key（建议优先使用环境变量注入；此字段仅用于运行时暂存）
 LLM_API_KEY = ""
 
+# ==================== Batch（Phase 2.5）配置 ====================
+BATCH_CONCURRENT_LIMIT = 3
+BATCH_MAX_RETRIES = 3
+BATCH_RETRY_DELAY_SECONDS = 2
+
 # Browser file configuration cached by the user's browser
 USER_DATA_DIR = "%s_user_data_dir"  # %s will be replaced by platform name
 
