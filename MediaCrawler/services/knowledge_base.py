@@ -35,6 +35,7 @@ class KnowledgeBase:
         index_rows: List[Dict[str, Any]] = []
         tag_counts: Dict[str, int] = {}
         knowledge_bag: List[Tuple[str, str, str]] = []
+        community_bag: List[Tuple[str, str]] = []
 
         for f in self._analysis_files():
             try:
@@ -73,12 +74,29 @@ class KnowledgeBase:
             report_candidates = list(self.run_dir.glob(f"mvp_report_*_{aweme_id}.md")) if aweme_id else []
             report_file = report_candidates[0].name if report_candidates else ""
 
+            ci = data.get("community_insights") or {}
+            consensus = ci.get("consensus") or []
+            controversy = ci.get("controversy") or []
+            if isinstance(consensus, list):
+                for x in consensus[:3]:
+                    if isinstance(x, str) and x:
+                        community_bag.append(("consensus", x))
+            if isinstance(controversy, list):
+                for x in controversy[:3]:
+                    if isinstance(x, str) and x:
+                        community_bag.append(("controversy", x))
+
             row = {
                 "aweme_id": aweme_id,
                 "video_url": video_url,
                 "source_keyword": source_keyword,
                 "knowledge_points": knowledge_points,
                 "tags": tags,
+                "comments_summary": {
+                    "consensus": consensus[:3] if isinstance(consensus, list) else [],
+                    "controversy": controversy[:3] if isinstance(controversy, list) else [],
+                    "tags": tags[:10],
+                },
                 "analysis_file": f.name,
                 "report_file": report_file,
             }
@@ -144,5 +162,35 @@ class KnowledgeBase:
         else:
             lines.append("- （无）")
         lines.append("")
-        return "\n".join(lines)
 
+        lines.append("## 社区反馈（跨视频）")
+        consensus_set = set()
+        controversy_set = set()
+        for row in index_rows:
+            cs = (row.get("comments_summary") or {}).get("consensus") or []
+            if isinstance(cs, list):
+                for x in cs:
+                    if isinstance(x, str) and x:
+                        consensus_set.add(x)
+            cv = (row.get("comments_summary") or {}).get("controversy") or []
+            if isinstance(cv, list):
+                for x in cv:
+                    if isinstance(x, str) and x:
+                        controversy_set.add(x)
+
+        lines.append("### 共识")
+        if consensus_set:
+            for x in list(consensus_set)[:20]:
+                lines.append(f"- {x}")
+        else:
+            lines.append("- （无）")
+
+        lines.append("### 争议")
+        if controversy_set:
+            for x in list(controversy_set)[:20]:
+                lines.append(f"- {x}")
+        else:
+            lines.append("- （无）")
+        lines.append("")
+
+        return "\n".join(lines)
