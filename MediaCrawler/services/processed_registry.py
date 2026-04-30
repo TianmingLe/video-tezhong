@@ -44,26 +44,31 @@ class ProcessedRegistry:
         with self.path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
-    def append_success(self, aweme_id: str) -> None:
+    def append_success(self, aweme_id: str, *, extra: Optional[Dict[str, Any]] = None) -> None:
         ts = datetime.now(timezone.utc).isoformat()
+        payload: Dict[str, Any] = {
+            "aweme_id": aweme_id,
+            "status": "success",
+            "timestamp": ts,
+        }
+        if extra:
+            payload.update(extra)
         self._append(
-            {
-                "aweme_id": aweme_id,
-                "status": "success",
-                "timestamp": ts,
-            }
+            payload
         )
         self._processed_success.add(aweme_id)
 
-    def append_failed(self, *, aweme_id: str, failed_stage: str, error_code: str) -> None:
+    def append_failed(
+        self, *, aweme_id: str, failed_stage: str, error_code: str, extra: Optional[Dict[str, Any]] = None
+    ) -> None:
         ts = datetime.now(timezone.utc).isoformat()
-        self._append(
-            {
-                "aweme_id": aweme_id,
-                "status": "failed",
-                "failed_stage": failed_stage,
-                "error_code": error_code,
-                "timestamp": ts,
-            }
-        )
-
+        payload: Dict[str, Any] = {
+            "aweme_id": aweme_id,
+            "status": "failed",
+            "failed_stage": failed_stage,
+            "error_code": error_code,
+            "timestamp": ts,
+        }
+        if extra:
+            payload.update(extra)
+        self._append(payload)
