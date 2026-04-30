@@ -100,6 +100,7 @@ class AnalysisPipeline:
                     valuable_comments=(analysis.get("comment_value_judge") or {}).get("items") or [],
                     knowledge_points=analysis.get("knowledge_points") or [],
                     suggestions=analysis.get("suggestions") or [],
+                    community_insights=analysis.get("community_insights") or {},
                 )
                 self._write_text(self.output_report_file, md)
 

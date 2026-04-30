@@ -8,6 +8,7 @@ def render_report(
     valuable_comments: List[Dict[str, Any]],
     knowledge_points: List[Dict[str, Any]],
     suggestions: List[str],
+    community_insights: Dict[str, Any] | None = None,
 ) -> str:
     """
     将结构化分析结果渲染为 Markdown 报告。
@@ -48,6 +49,36 @@ def render_report(
         lines.append("- （无）")
     lines.append("")
 
+    lines.append("## 💬 高赞评论精选")
+    if valuable_comments:
+        for c in valuable_comments:
+            tags = " ".join(c.get("tags") or [])
+            lines.append(f"- {tags} {c.get('comment_text', '')}".strip())
+    else:
+        lines.append("- （无）")
+    lines.append("")
+
+    lines.append("## 🗣️ 社区共识与争议")
+    ci = community_insights or {}
+    consensus = ci.get("consensus") or []
+    controversy = ci.get("controversy") or []
+    if consensus:
+        lines.append("### 共识")
+        for x in consensus:
+            lines.append(f"- {x}")
+    else:
+        lines.append("### 共识")
+        lines.append("- （无）")
+
+    if controversy:
+        lines.append("### 争议")
+        for x in controversy:
+            lines.append(f"- {x}")
+    else:
+        lines.append("### 争议")
+        lines.append("- （无）")
+    lines.append("")
+
     lines.append("## 可执行建议")
     if suggestions:
         for s in suggestions:
@@ -57,4 +88,3 @@ def render_report(
     lines.append("")
 
     return "\n".join(lines)
-
