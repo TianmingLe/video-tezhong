@@ -56,6 +56,7 @@ class LLMAnalyzer:
         prompt_name: str,
         system_text: str,
         user_text: str,
+        default_parsed: Any = None,
     ) -> Dict[str, Any]:
         key = self._cache_key(model=model, prompt_name=prompt_name, user_text=user_text)
         if self.cache:
@@ -90,7 +91,7 @@ class LLMAnalyzer:
             parsed = json.loads(resp.text)
         except Exception as e:
             parse_error = str(e)
-            parsed = []
+            parsed = default_parsed if default_parsed is not None else []
 
         payload = {
             "cached": False,
@@ -114,7 +115,7 @@ class LLMAnalyzer:
         api_key: str,
         video_topic: str,
         transcript: str,
-        comments: List[Dict[str, Any]],
+        comments: Optional[Dict[str, Any]],
         ocr_text: str,
     ) -> Dict[str, Any]:
         """
@@ -132,8 +133,9 @@ class LLMAnalyzer:
         total_tokens = 0
         total_cost = 0.0
 
+        missing_comments = comments is None
         cv_tpl = self.prompt_store.get("comment_value_judge")
-        comments_json = json.dumps(comments, ensure_ascii=False)
+        comments_json = json.dumps(comments or {"root_comments": [], "stats": {"total_comments": 0}}, ensure_ascii=False)
         cv_user = cv_tpl.user.format(video_topic=video_topic, comments_json=comments_json)
         cv = await self._call_json(
             model=model,
@@ -142,10 +144,57 @@ class LLMAnalyzer:
             prompt_name="comment_value_judge",
             system_text=cv_tpl.system,
             user_text=cv_user,
+            default_parsed=[],
         )
 
         ke_tpl = self.prompt_store.get("knowledge_extract")
-        ke_user = ke_tpl.user.format(transcript=transcript, ocr_text=ocr_text)
+        comment_items = cv.get("parsed")
+        if not isinstance(comment_items, list):
+            comment_items = []
+
+        valuable_comments = [
+            x
+            for x in comment_items
+            if isinstance(x, dict) and (x.get("is_valuable") is True)
+        ]
+        valuable_comments_json = json.dumps(valuable_comments, ensure_ascii=False)
+
+        community_insights: Dict[str, Any] = {"consensus": [], "controversy": []}
+        try:
+            ci_tpl = self.prompt_store.get("community_insights")
+            ci_user = ci_tpl.user.format(video_topic=video_topic, comments_json=comments_json)
+            ci = await self._call_json(
+                model=model,
+                api_base=api_base,
+                api_key=api_key,
+                prompt_name="community_insights",
+                system_text=ci_tpl.system,
+                user_text=ci_user,
+                default_parsed={},
+            )
+
+            parsed_ci = ci.get("parsed")
+            if isinstance(parsed_ci, dict):
+                community_insights = {
+                    "consensus": parsed_ci.get("consensus") or [],
+                    "controversy": parsed_ci.get("controversy") or [],
+                }
+
+            usage = ci.get("usage") or {}
+            total_prompt += int(usage.get("prompt_tokens") or 0)
+            total_completion += int(usage.get("completion_tokens") or 0)
+            total_tokens += int(usage.get("total_tokens") or 0)
+            c = ci.get("cost_usd")
+            if isinstance(c, (int, float)):
+                total_cost += float(c)
+        except Exception:
+            community_insights = {"consensus": [], "controversy": []}
+
+        ke_user = ke_tpl.user.format(
+            transcript=transcript,
+            ocr_text=ocr_text,
+            valuable_comments_json=valuable_comments_json,
+        )
         ke = await self._call_json(
             model=model,
             api_base=api_base,
@@ -153,6 +202,7 @@ class LLMAnalyzer:
             prompt_name="knowledge_extract",
             system_text=ke_tpl.system,
             user_text=ke_user,
+            default_parsed=[],
         )
 
         for part in (cv, ke):
@@ -163,10 +213,6 @@ class LLMAnalyzer:
             c = part.get("cost_usd")
             if isinstance(c, (int, float)):
                 total_cost += float(c)
-
-        comment_items = cv.get("parsed")
-        if not isinstance(comment_items, list):
-            comment_items = []
 
         knowledge_points = ke.get("parsed")
         if not isinstance(knowledge_points, list):
@@ -181,14 +227,15 @@ class LLMAnalyzer:
                 "cost_usd": round(total_cost, 6),
             },
             "comment_value_judge": {
-                "missing_comments": len(comments) == 0,
+                "missing_comments": missing_comments,
                 "items": comment_items,
                 "parse_error": cv.get("parse_error"),
                 "cached": cv.get("cached"),
             },
+            "valuable_comments": valuable_comments,
+            "community_insights": community_insights,
             "knowledge_points": knowledge_points,
             "knowledge_points_parse_error": ke.get("parse_error"),
             "knowledge_points_cached": ke.get("cached"),
             "suggestions": [],
         }
-
