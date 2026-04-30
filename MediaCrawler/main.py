@@ -30,6 +30,7 @@ if sys.stderr and hasattr(sys.stderr, 'buffer'):
         sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 import asyncio
+import json
 from typing import Optional, Type
 
 import cmd_arg
@@ -119,6 +120,17 @@ async def main() -> None:
         return
 
     if getattr(args, "pipeline", "") == "mvp":
+        from services.platform_adapter import (
+            apply_cookie_overrides,
+            comment_owner_field,
+            jsonl_dir,
+            normalize_specified_id,
+            parse_video_id,
+            xhs_search_risk_warning,
+        )
+
+        apply_cookie_overrides(platform=str(getattr(args, "platform", config.PLATFORM) or config.PLATFORM), args=args)
+
         if getattr(args, "type", "detail") == "search":
             from datetime import datetime
             from pathlib import Path
@@ -136,13 +148,17 @@ async def main() -> None:
             ctx = RunContext(run_root=Path("."), run_id=run_id)
 
             if not bool(getattr(args, "dry_run", False)):
-                config.PLATFORM = "dy"
-                config.CRAWLER_TYPE = "search"
                 config.SAVE_DATA_OPTION = "jsonl"
                 config.KEYWORDS = str(getattr(args, "keywords", "") or "")
 
-                crawler = CrawlerFactory.create_crawler(platform=config.PLATFORM)
-                await crawler.start()
+                try:
+                    crawler = CrawlerFactory.create_crawler(platform=str(config.PLATFORM or "dy"))
+                    await crawler.start()
+                except Exception as e:
+                    if str(config.PLATFORM or "") == "xhs":
+                        xhs_search_risk_warning(err=e)
+                    else:
+                        raise
 
             all_candidates = read_search_results()
             limit_value = int(getattr(args, "limit", 1))
@@ -181,13 +197,15 @@ async def main() -> None:
         if not shutil.which("ffmpeg"):
             print("[MVP] FFmpeg not found in PATH. Whisper/yt-dlp may fail without ffmpeg.")
 
-        config.PLATFORM = "dy"
         config.SAVE_DATA_OPTION = "jsonl"
 
         if getattr(args, "enable_llm", False):
             config.ENABLE_GET_COMMENTS = True
 
         specified_id = str(args.specified_id).split(",")[0].strip()
+        if str(config.PLATFORM or "") == "xhs":
+            specified_id = normalize_specified_id(platform="xhs", specified_id=specified_id)
+            config.XHS_SPECIFIED_NOTE_URL_LIST = [specified_id]
         from pipelines.mvp_pipeline import MVPPipeline
 
         pipeline = MVPPipeline(platform=config.PLATFORM)
@@ -209,12 +227,10 @@ async def main() -> None:
                 from services.comment_processor import CommentProcessor
 
                 specified_raw = str(args.specified_id).split(",")[0].strip()
-                m = re.search(r"(\d{8,})", specified_raw)
-                aweme_id = m.group(1) if m else ""
+                video_id = parse_video_id(platform=str(config.PLATFORM or "dy"), url_or_id=specified_raw)
 
-                if aweme_id and config.ENABLE_GET_COMMENTS:
-                    base = Path(config.SAVE_DATA_PATH) if config.SAVE_DATA_PATH else Path("data")
-                    folder = base / "douyin" / "jsonl"
+                if video_id and config.ENABLE_GET_COMMENTS:
+                    folder = jsonl_dir(platform=str(config.PLATFORM or "dy"))
                     files = list(folder.glob("*_comments_*.jsonl"))
                     files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
 
@@ -226,14 +242,15 @@ async def main() -> None:
                                 if not ln:
                                     continue
                                 obj = json.loads(ln)
-                                if isinstance(obj, dict) and str(obj.get("aweme_id") or "") == aweme_id:
+                                owner_field = comment_owner_field(platform=str(config.PLATFORM or "dy"))
+                                if isinstance(obj, dict) and str(obj.get(owner_field) or "") == video_id:
                                     raw_comments.append(obj)
                         except Exception:
                             continue
                         if raw_comments:
                             break
 
-                    if (not raw_comments) and bool(getattr(args, "force_regrab", False)):
+                    if (not raw_comments) and bool(getattr(args, "force_regrab", False)) and str(config.PLATFORM or "") == "dy":
                         try:
                             from media_platform.douyin.core import DouYinCrawler
 
@@ -242,7 +259,7 @@ async def main() -> None:
                             try:
                                 config.PLATFORM = "dy"
                                 config.CRAWLER_TYPE = "detail"
-                                config.DY_SPECIFIED_ID_LIST = [aweme_id]
+                                config.DY_SPECIFIED_ID_LIST = [video_id]
                                 config.CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = int(getattr(args, "top_comments", config.TOP_COMMENTS_LIMIT))
                                 crawler = DouYinCrawler()
                                 await crawler.get_specified_awemes()
@@ -260,7 +277,8 @@ async def main() -> None:
                                     if not ln:
                                         continue
                                     obj = json.loads(ln)
-                                    if isinstance(obj, dict) and str(obj.get("aweme_id") or "") == aweme_id:
+                                    owner_field = comment_owner_field(platform=str(config.PLATFORM or "dy"))
+                                    if isinstance(obj, dict) and str(obj.get(owner_field) or "") == video_id:
                                         raw_comments.append(obj)
                             except Exception:
                                 continue
@@ -282,7 +300,8 @@ async def main() -> None:
                         mvp_out_path = Path("results/mvp_output.json")
                         if mvp_out_path.exists():
                             mvp_out = json.loads(mvp_out_path.read_text(encoding="utf-8"))
-                            mvp_out["aweme_id"] = aweme_id
+                            mvp_out["video_id"] = video_id
+                            mvp_out["platform"] = str(config.PLATFORM or "")
                             mvp_out["comments"] = comments_struct
                             mvp_out_path.write_text(json.dumps(mvp_out, ensure_ascii=False, indent=2), encoding="utf-8")
             except Exception:

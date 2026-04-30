@@ -309,6 +309,30 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
                 rich_help_panel="Account Configuration",
             ),
         ] = config.COOKIES,
+        xhs_cookie: Annotated[
+            str,
+            typer.Option(
+                "--xhs-cookie",
+                help="Xiaohongshu cookie string (higher priority than --cookies when platform=xhs)",
+                rich_help_panel="Account Configuration",
+            ),
+        ] = "",
+        dy_cookie: Annotated[
+            str,
+            typer.Option(
+                "--dy-cookie",
+                help="Reserved for future Douyin cookie override",
+                rich_help_panel="Account Configuration",
+            ),
+        ] = "",
+        bili_cookie: Annotated[
+            str,
+            typer.Option(
+                "--bili-cookie",
+                help="Reserved for future Bilibili cookie override",
+                rich_help_panel="Account Configuration",
+            ),
+        ] = "",
         specified_id: Annotated[
             str,
             typer.Option(
@@ -562,6 +586,9 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
             save_data_option=config.SAVE_DATA_OPTION,
             init_db=init_db_value,
             cookies=config.COOKIES,
+            xhs_cookie=xhs_cookie,
+            dy_cookie=dy_cookie,
+            bili_cookie=bili_cookie,
             specified_id=specified_id,
             creator_id=creator_id,
         )
