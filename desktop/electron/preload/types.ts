@@ -26,6 +26,39 @@ export type TrayConfig = {
   showBadgeOnRunning: boolean
 }
 
+export type TaskHistoryStatus = 'queued' | 'running' | 'exited' | 'error' | 'cancelled'
+
+export type TaskHistoryItem = {
+  runId: string
+  scriptName: string
+  scenario: string
+  status: TaskHistoryStatus
+  exitCode: number | null
+  startTime: number | null
+  endTime: number | null
+}
+
+export type TaskTemplateConfig = {
+  scriptName: string
+  scenario: string
+}
+
+export type TaskTemplate = {
+  id: string
+  title: string
+  tags: string[]
+  createdAt: number
+  config: TaskTemplateConfig
+}
+
+export type TaskTemplateSaveInput = { title: string; tags: string[]; config: TaskTemplateConfig }
+
+export type HistoryItem = TaskHistoryItem
+
+export type TemplateItem = TaskTemplate
+
+export type TemplateSaveInput = { id?: string; title: string; tags: string[]; config: TaskTemplateConfig }
+
 export type DesktopApi = {
   version: string
   job: {
@@ -34,6 +67,14 @@ export type DesktopApi = {
     onLog: (runId: string, callback: (line: string) => void) => () => void
     onStatus: (runId: string, callback: (ev: JobStatusEvent) => void) => () => void
     exportLog: (runId: string) => Promise<ExportLogResult>
+  }
+  history: {
+    list: () => Promise<HistoryItem[]>
+    get: (runId: string) => Promise<HistoryItem | null>
+  }
+  templates: {
+    list: () => Promise<TemplateItem[]>
+    save: (input: TemplateSaveInput) => Promise<TemplateItem>
   }
   tray: {
     getConfig: () => Promise<TrayConfig>

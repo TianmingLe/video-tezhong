@@ -2,12 +2,15 @@ import { app, BrowserWindow, Notification, dialog, ipcMain } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import Store from 'electron-store'
 import { ipcChannels } from '@shared/ipc'
 import { PythonProcessManager } from './process/PythonProcessManager'
 import { TrayController } from './tray/TrayController'
 import { WindowController } from './window/WindowController'
 import { runNotifyFlow } from './notify/notifyFlow'
 import type { TrayConfig } from './tray/types'
+import { createHistoryStore, type StoreAdapter as HistoryStoreAdapter } from './store/historyStore'
+import { createTemplatesStore } from './store/templatesStore'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -19,6 +22,14 @@ let isQuitting = false
 app.on('before-quit', () => {
   isQuitting = true
 })
+
+function inferScenario(args: unknown): string {
+  if (!Array.isArray(args)) return ''
+  const parts = args.map((x) => String(x))
+  const idx = parts.indexOf('--scenario')
+  if (idx < 0) return ''
+  return String(parts[idx + 1] ?? '').trim()
+}
 
 function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -54,7 +65,20 @@ const windowController = new WindowController({
   onWindowVisibilityChange: (visible) => trayController.setWindowVisible(visible)
 })
 
+function createElectronStoreAdapter(name: string): HistoryStoreAdapter {
+  const store = new Store<Record<string, unknown>>({ name })
+  return {
+    get: <T>(key: string) => store.get(key) as T,
+    set: <T>(key: string, value: T) => {
+      store.set(key, value as never)
+    }
+  }
+}
+
 app.whenReady().then(() => {
+  const historyStore = createHistoryStore({ adapter: createElectronStoreAdapter('history') })
+  const templatesStore = createTemplatesStore({ adapter: createElectronStoreAdapter('templates'), key: 'taskTemplates' })
+
   trayController.init({
     windowController,
     config: { tooltip: 'OmniScraper Desktop' },
@@ -72,6 +96,7 @@ app.whenReady().then(() => {
       activeRunId = null
       trayController.setActiveRunId(null)
     }
+    historyStore.applyStatusChange({ runId: ev.runId, status: 'exited', exitCode: ev.code, ts: Date.now() })
     windowController.getWindow()?.webContents.send(ipcChannels.jobStatus, { status: 'exited', ...ev })
     runNotifyFlow({
       runId: ev.runId,
@@ -98,6 +123,7 @@ app.whenReady().then(() => {
   processManager.onStart((ev) => {
     activeRunId = ev.runId
     trayController.setActiveRunId(ev.runId)
+    historyStore.applyStatusChange({ runId: ev.runId, status: 'running', ts: Date.now() })
     windowController.getWindow()?.webContents.send(ipcChannels.jobStatus, {
       runId: ev.runId,
       status: 'started',
@@ -105,6 +131,7 @@ app.whenReady().then(() => {
     })
   })
   processManager.onError((ev) => {
+    historyStore.applyStatusChange({ runId: ev.runId, status: 'error', ts: Date.now() })
     windowController.getWindow()?.webContents.send(ipcChannels.jobStatus, {
       runId: ev.runId,
       status: 'error',
@@ -133,12 +160,27 @@ app.whenReady().then(() => {
     })
   })
 
-  ipcMain.handle(ipcChannels.jobStart, async (_evt, cfg) => {
-    const res = await processManager.start(cfg)
+  ipcMain.handle(ipcChannels.jobStart, async (_evt, cfg: { runId: string; script: string; args: string[] } | null) => {
+    const runId = String(cfg?.runId || '').trim()
+    if (runId) {
+      historyStore.applyStatusChange({
+        runId,
+        status: 'queued',
+        scriptName: path.basename(String(cfg?.script || '').trim()),
+        scenario: inferScenario(cfg?.args),
+        ts: Date.now()
+      })
+    }
+
+    const res = await processManager.start(cfg as never)
+    if (!res.success && runId) {
+      historyStore.applyStatusChange({ runId, status: 'error', ts: Date.now() })
+    }
     return res
   })
 
   ipcMain.handle(ipcChannels.jobCancel, async (_evt, runId: string) => {
+    historyStore.applyStatusChange({ runId, status: 'cancelled', ts: Date.now() })
     await processManager.kill(runId)
     if (activeRunId === runId) {
       activeRunId = null
@@ -161,6 +203,22 @@ app.whenReady().then(() => {
     } catch (e) {
       return { success: false, error: String((e as Error)?.message || e) }
     }
+  })
+
+  ipcMain.handle(ipcChannels.historyList, async () => {
+    return historyStore.list()
+  })
+
+  ipcMain.handle(ipcChannels.historyGet, async (_evt, runId: string) => {
+    return historyStore.get(runId)
+  })
+
+  ipcMain.handle(ipcChannels.templatesList, async () => {
+    return templatesStore.list()
+  })
+
+  ipcMain.handle(ipcChannels.templatesSave, async (_evt, input) => {
+    return templatesStore.save(input)
   })
 
   ipcMain.handle(ipcChannels.trayGetConfig, async () => {

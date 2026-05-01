@@ -29,6 +29,22 @@ const api: DesktopApi = {
       return await ipcRenderer.invoke(ipcChannels.jobExportLog, runId)
     }
   },
+  history: {
+    list: async () => {
+      return await ipcRenderer.invoke(ipcChannels.historyList)
+    },
+    get: async (runId) => {
+      return await ipcRenderer.invoke(ipcChannels.historyGet, runId)
+    }
+  },
+  templates: {
+    list: async () => {
+      return await ipcRenderer.invoke(ipcChannels.templatesList)
+    },
+    save: async (input) => {
+      return await ipcRenderer.invoke(ipcChannels.templatesSave, input)
+    }
+  },
   tray: {
     getConfig: async () => {
       return await ipcRenderer.invoke(ipcChannels.trayGetConfig)
