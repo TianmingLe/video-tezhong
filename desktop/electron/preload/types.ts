@@ -1,3 +1,5 @@
+import type { ConfigRecord, TaskRecord, TaskStatus } from '../main/db/types'
+
 export type JobConfig = {
   runId: string
   script: string
@@ -29,52 +31,11 @@ export type TrayConfig = {
   showBadgeOnRunning: boolean
 }
 
-export type TaskHistoryStatus = 'queued' | 'running' | 'exited' | 'error' | 'cancelled'
-
-export type TaskHistoryItem = {
-  runId: string
-  scriptName: string
-  scenario: string
-  status: TaskHistoryStatus
-  exitCode: number | null
-  startTime: number | null
-  endTime: number | null
-}
-
-export type JobSnapshot = {
-  runId: string
-  state: TaskHistoryStatus
-  pid: number | null
-  exitCode: number | null
-  signal: string | null
-  error: string | null
-}
+export type { TaskRecord, ConfigRecord, TaskStatus } from '../main/db/types'
 
 export type JobQueueStatus = {
-  maxConcurrency: number
-  running: JobSnapshot[]
-  queued: JobSnapshot[]
-  jobs: Record<string, JobSnapshot>
-}
-
-export type KbItem = {
-  id: number
-  name: string
-  script: string
-  scenario: string
-  gatewayWs: string | null
-  env: Record<string, string>
-  isDefault: boolean
-}
-
-export type KbSaveInput = {
-  id?: number
-  name: string
-  script: string
-  scenario: string
-  gatewayWs?: string | null
-  env?: Record<string, string>
-  isDefault?: boolean
+  running: string[]
+  pending: number
 }
 
 export type DesktopApi = {
@@ -86,12 +47,12 @@ export type DesktopApi = {
     onStatus: (runId: string, callback: (ev: JobStatusEvent) => void) => () => void
     exportLog: (runId: string) => Promise<ExportLogResult>
     queueStatus: () => Promise<JobQueueStatus>
-    history: () => Promise<TaskHistoryItem[]>
+    history: () => Promise<TaskRecord[]>
   }
   kb: {
-    list: () => Promise<KbItem[]>
-    save: (input: KbSaveInput) => Promise<KbItem>
-    setDefault: (id: number) => Promise<KbItem>
+    list: () => Promise<ConfigRecord[]>
+    save: (input: Omit<ConfigRecord, 'id'>) => Promise<number>
+    setDefault: (id: number) => Promise<{ success: true }>
   }
   tray: {
     getConfig: () => Promise<TrayConfig>

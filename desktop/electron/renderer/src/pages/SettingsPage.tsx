@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import type { KbItem, TrayConfig, TrayLeftClickMode } from '../../../preload/types'
+import type { ConfigRecord, TrayConfig, TrayLeftClickMode } from '../../../preload/types'
 
 export function SettingsPage() {
   const [trayConfig, setTrayConfig] = useState<TrayConfig | null>(null)
-  const [kbConfigs, setKbConfigs] = useState<KbItem[]>([])
+  const [kbConfigs, setKbConfigs] = useState<ConfigRecord[]>([])
   const [kbLoading, setKbLoading] = useState(true)
 
   useEffect(() => {
@@ -55,7 +55,7 @@ export function SettingsPage() {
     await refreshKb()
   }
 
-  const duplicateAsTemplate = async (cfg: KbItem) => {
+  const duplicateAsTemplate = async (cfg: ConfigRecord) => {
     const name = window.prompt('模板名称', cfg.name)
     const trimmed = String(name || '').trim()
     if (!trimmed) return
@@ -63,8 +63,9 @@ export function SettingsPage() {
       name: trimmed,
       script: cfg.script,
       scenario: cfg.scenario,
-      gatewayWs: cfg.gatewayWs,
-      env: cfg.env
+      gateway_ws: cfg.gateway_ws,
+      env: cfg.env,
+      is_default: 0
     })
     await refreshKb()
   }
@@ -116,13 +117,13 @@ export function SettingsPage() {
             {kbConfigs.map((cfg) => (
               <div key={cfg.id} className="list-item" style={{ cursor: 'default' }}>
                 <div className="list-title">
-                  {cfg.name} {cfg.isDefault ? <span className="muted">（默认）</span> : null}
+                  {cfg.name} {cfg.is_default === 1 ? <span className="muted">（默认）</span> : null}
                 </div>
                 <div className="list-subtitle">
-                  {cfg.script} · {cfg.scenario} {cfg.gatewayWs ? `· ${cfg.gatewayWs}` : ''}
+                  {cfg.script} · {cfg.scenario} {cfg.gateway_ws ? `· ${cfg.gateway_ws}` : ''}
                 </div>
                 <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                  <button type="button" className="btn" disabled={cfg.isDefault} onClick={() => setDefault(cfg.id)}>
+                  <button type="button" className="btn" disabled={cfg.is_default === 1} onClick={() => setDefault(cfg.id)}>
                     设为默认
                   </button>
                   <button type="button" className="btn" onClick={() => duplicateAsTemplate(cfg)}>

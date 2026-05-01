@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { KbItem } from '../../../../preload/types'
+import type { ConfigRecord } from '../../../../preload/types'
 
 export function KnowledgeList() {
   const navigate = useNavigate()
   const [q, setQ] = useState('')
-  const [items, setItems] = useState<KbItem[]>([])
+  const [items, setItems] = useState<ConfigRecord[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -35,6 +35,24 @@ export function KnowledgeList() {
     })
   }, [q, items])
 
+  const parseEnv = (raw: string) => {
+    const s = String(raw || '').trim()
+    if (!s) return {}
+    try {
+      const o = JSON.parse(s) as unknown
+      if (!o || typeof o !== 'object' || Array.isArray(o)) return {}
+      const out: Record<string, string> = {}
+      for (const [k, v] of Object.entries(o as Record<string, unknown>)) {
+        const key = String(k || '').trim()
+        if (!key) continue
+        out[key] = String(v ?? '')
+      }
+      return out
+    } catch {
+      return {}
+    }
+  }
+
   return (
     <div className="card">
       <div className="row">
@@ -54,14 +72,19 @@ export function KnowledgeList() {
               onClick={() => {
                 sessionStorage.setItem(
                   'taskPreset',
-                  JSON.stringify({ script: it.script, scenario: it.scenario, gatewayWs: it.gatewayWs, env: it.env })
+                  JSON.stringify({
+                    script: it.script,
+                    scenario: it.scenario,
+                    gatewayWs: it.gateway_ws,
+                    env: parseEnv(it.env)
+                  })
                 )
                 navigate('/tasks')
               }}
             >
               <div className="list-title">
                 {it.name}
-                {it.isDefault ? <span className="muted">（默认）</span> : null}
+                {it.is_default === 1 ? <span className="muted">（默认）</span> : null}
               </div>
               <div className="list-subtitle">
                 {it.script} · {it.scenario}

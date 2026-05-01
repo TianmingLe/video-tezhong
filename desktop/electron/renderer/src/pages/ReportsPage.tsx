@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { TaskHistoryItem, TaskHistoryStatus } from '../../../preload/types'
+import type { TaskRecord, TaskStatus } from '../../../preload/types'
 
 export function ReportsPage() {
   const navigate = useNavigate()
-  const [items, setItems] = useState<TaskHistoryItem[]>([])
+  const [items, setItems] = useState<TaskRecord[]>([])
   const [loading, setLoading] = useState(true)
-  const [status, setStatus] = useState<TaskHistoryStatus | 'all'>('all')
+  const [status, setStatus] = useState<TaskStatus | 'all'>('all')
   const [script, setScript] = useState<string>('all')
 
   useEffect(() => {
@@ -31,7 +31,7 @@ export function ReportsPage() {
   const scriptOptions = useMemo(() => {
     const set = new Set<string>()
     for (const it of items) {
-      if (it.scriptName) set.add(it.scriptName)
+      if (it.script) set.add(it.script)
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b))
   }, [items])
@@ -39,7 +39,7 @@ export function ReportsPage() {
   const filtered = useMemo(() => {
     return items.filter((it) => {
       if (status !== 'all' && it.status !== status) return false
-      if (script !== 'all' && it.scriptName !== script) return false
+      if (script !== 'all' && it.script !== script) return false
       return true
     })
   }, [items, status, script])
@@ -101,17 +101,17 @@ export function ReportsPage() {
           <div className="list">
             {filtered.map((it) => (
               <button
-                key={it.runId}
+                key={it.run_id}
                 type="button"
                 className="list-item"
-                onClick={() => navigate(`/report/${it.runId}`)}
+                onClick={() => navigate(`/report/${it.run_id}`)}
               >
                 <div className="list-title">
-                  {it.runId} · {it.status}
+                  {it.run_id} · {it.status}
                 </div>
                 <div className="list-subtitle">
-                  {it.scriptName} · {it.scenario} · start {toTime(it.startTime)} · end {toTime(it.endTime)} · exit{' '}
-                  {it.exitCode ?? '-'}
+                  {it.script} · {it.scenario} · start {toTime(it.start_time)} · end {toTime(it.end_time)} · exit{' '}
+                  {it.exit_code ?? '-'}
                 </div>
               </button>
             ))}

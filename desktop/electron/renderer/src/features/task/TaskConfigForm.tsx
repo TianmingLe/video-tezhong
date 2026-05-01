@@ -64,8 +64,9 @@ export function TaskConfigForm(props: TaskConfigFormProps) {
         name: trimmed,
         script: v.script,
         scenario: v.scenario,
-        gatewayWs: v.gatewayWs || '',
-        env: v.env || {}
+        gateway_ws: (v.gatewayWs || '').trim() || null,
+        env: JSON.stringify(v.env || {}),
+        is_default: 0
       })
       window.alert('已保存为模板')
     } catch (e) {
