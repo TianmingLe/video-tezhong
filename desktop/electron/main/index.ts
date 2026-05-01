@@ -2,7 +2,6 @@ import { app, BrowserWindow, Notification, dialog, ipcMain } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import Store from 'electron-store'
 import { ipcChannels } from '@shared/ipc'
 import { PythonProcessManager } from './process/PythonProcessManager'
 import { TrayController } from './tray/TrayController'
@@ -65,24 +64,53 @@ const windowController = new WindowController({
   onWindowVisibilityChange: (visible) => trayController.setWindowVisible(visible)
 })
 
-function createElectronStoreAdapter(name: string): HistoryStoreAdapter {
-  const store = new Store<Record<string, unknown>>({ name })
+function createJsonFileStoreAdapter(args: { userDataPath: string; name: string }): HistoryStoreAdapter {
+  const filePath = path.join(args.userDataPath, `${args.name}.json`)
+
+  const readRoot = (): Record<string, unknown> => {
+    if (!fs.existsSync(filePath)) return {}
+    try {
+      const raw = fs.readFileSync(filePath, 'utf-8')
+      const parsed = JSON.parse(raw) as unknown
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+      return parsed as Record<string, unknown>
+    } catch {
+      return {}
+    }
+  }
+
+  const writeRoot = (root: Record<string, unknown>) => {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true })
+    fs.writeFileSync(filePath, JSON.stringify(root, null, 2), 'utf-8')
+  }
+
   return {
-    get: <T>(key: string) => store.get(key) as T,
+    get: <T>(key: string) => {
+      const root = readRoot()
+      return root[key] as T
+    },
     set: <T>(key: string, value: T) => {
-      store.set(key, value as never)
+      const root = readRoot()
+      root[key] = value as unknown
+      writeRoot(root)
     }
   }
 }
 
 app.whenReady().then(() => {
-  const historyStore = createHistoryStore({ adapter: createElectronStoreAdapter('history') })
-  const templatesStore = createTemplatesStore({ adapter: createElectronStoreAdapter('templates'), key: 'taskTemplates' })
+  const userDataPath = app.getPath('userData')
+  process.env.OMNI_USER_DATA_PATH = userDataPath
+
+  const historyStore = createHistoryStore({ adapter: createJsonFileStoreAdapter({ userDataPath, name: 'history' }) })
+  const templatesStore = createTemplatesStore({
+    adapter: createJsonFileStoreAdapter({ userDataPath, name: 'templates' }),
+    key: 'taskTemplates'
+  })
 
   trayController.init({
     windowController,
     config: { tooltip: 'OmniScraper Desktop' },
-    trayConfigPersistence: { userDataPath: app.getPath('userData'), fs },
+    trayConfigPersistence: { userDataPath, fs },
     onCancelRun: async (runId) => {
       await processManager.kill(runId)
     }
