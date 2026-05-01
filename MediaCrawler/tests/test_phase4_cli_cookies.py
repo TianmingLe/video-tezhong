@@ -30,10 +30,12 @@ def test_parse_cmd_has_platform_cookie_fields(monkeypatch):
             "c2",
             "--bili-cookie",
             "c3",
+            "--bili-sort",
+            "click",
         ],
     )
     ns = asyncio.run(arg.parse_cmd())
     assert ns.xhs_cookie == "c1"
     assert ns.dy_cookie == "c2"
     assert ns.bili_cookie == "c3"
-
+    assert ns.bili_sort == "click"

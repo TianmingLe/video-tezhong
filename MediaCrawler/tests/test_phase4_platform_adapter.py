@@ -30,6 +30,17 @@ def test_rank_key_xhs_interactions():
 
 
 def test_rank_key_bili_pubdate():
+    import config
+
+    config.BILI_SORT = "pubdate"
     item = {"create_time": 1710000000}
     assert search_rank_key(platform="bili", content=item) == 1710000000
 
+
+def test_rank_key_bili_click():
+    import config
+
+    config.BILI_SORT = "click"
+    item = {"video_play_count": "12345", "create_time": 1}
+    assert search_rank_key(platform="bili", content=item) == 12345
+    config.BILI_SORT = "pubdate"

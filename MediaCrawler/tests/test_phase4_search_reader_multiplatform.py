@@ -28,6 +28,7 @@ def test_read_search_results_xhs_and_sort_key(tmp_path, monkeypatch):
 def test_read_search_results_bili_pubdate_rank(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     config.PLATFORM = "bili"
+    config.BILI_SORT = "pubdate"
 
     p = Path("data/bili/jsonl")
     p.mkdir(parents=True, exist_ok=True)
@@ -44,4 +45,3 @@ def test_read_search_results_bili_pubdate_rank(tmp_path, monkeypatch):
     assert len(items) == 1
     assert items[0].aweme_id == "av1"
     assert items[0].liked_count == 1710000000
-

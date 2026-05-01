@@ -416,6 +416,14 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
                 show_default=True,
             ),
         ] = str(config.OCR_USE_GPU),
+        bili_sort: Annotated[
+            str,
+            typer.Option(
+                "--bili-sort",
+                help="Bilibili search sorting strategy (pubdate|click)",
+                rich_help_panel="Platform Configuration",
+            ),
+        ] = str(getattr(config, "BILI_SORT", "pubdate")),
         max_concurrency_num: Annotated[
             int,
             typer.Option(
@@ -512,6 +520,7 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
         config.OCR_INTERVAL_SEC = safe_ocr_interval
         config.OCR_MODEL = ocr_model
         config.OCR_USE_GPU = ocr_use_gpu_value
+        config.BILI_SORT = str(bili_sort or "pubdate").strip().lower() or "pubdate"
         config.MAX_CONCURRENCY_NUM = max_concurrency_num
         config.SAVE_DATA_PATH = save_data_path
         config.ENABLE_IP_PROXY = enable_ip_proxy_value
@@ -574,6 +583,7 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
             ocr_interval=config.OCR_INTERVAL_SEC,
             ocr_model=config.OCR_MODEL,
             ocr_use_gpu=config.OCR_USE_GPU,
+            bili_sort=getattr(config, "BILI_SORT", "pubdate"),
             enable_llm=config.ENABLE_LLM,
             llm_model=config.LLM_MODEL,
             llm_base_url=config.LLM_BASE_URL,

@@ -79,6 +79,15 @@ def search_rank_key(*, platform: str, content: Dict[str, Any]) -> int:
 
         return _i(content.get("liked_count")) + _i(content.get("collected_count")) + _i(content.get("comment_count"))
     if platform == "bili":
+        sort = str(getattr(config, "BILI_SORT", "pubdate") or "pubdate").strip().lower()
+        if sort == "click":
+            for k in ("video_play_count", "view", "play", "click"):
+                if k in content:
+                    try:
+                        return int(content.get(k) or 0)
+                    except Exception:
+                        return 0
+            return 0
         try:
             return int(content.get("create_time") or content.get("pubdate") or 0)
         except Exception:

@@ -168,7 +168,16 @@ async def main() -> None:
                 limit_value = 50
 
             print(f'[INFO] 搜索关键词: "{keyword}", 找到 {len(all_candidates)} 个视频')
-            print(f"[INFO] 按点赞排序，取 Top {min(len(all_candidates), limit_value)} 进行处理")
+            platform_value = str(config.PLATFORM or "dy")
+            sort_desc = "按点赞排序"
+            if platform_value == "xhs":
+                sort_desc = "按互动（点赞+收藏+评论）排序"
+            elif platform_value == "bili":
+                bili_sort = str(getattr(config, "BILI_SORT", "pubdate") or "pubdate")
+                sort_desc = "按播放量排序" if bili_sort == "click" else "按发布时间排序"
+
+            print(f"[INFO] 平台: {platform_value}, 模式: search, 排序: {str(getattr(config, 'BILI_SORT', '')) if platform_value == 'bili' else ''}".strip())
+            print(f"[INFO] {sort_desc}，取 Top {min(len(all_candidates), limit_value)} 进行处理")
 
             bp = BatchProcessor(run_context=ctx)
             await bp.run(
