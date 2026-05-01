@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import { app, BrowserWindow, Notification, dialog, ipcMain } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -6,6 +6,7 @@ import { ipcChannels } from '@shared/ipc'
 import { PythonProcessManager } from './process/PythonProcessManager'
 import { TrayController } from './tray/TrayController'
 import { WindowController } from './window/WindowController'
+import { buildNotificationPayload } from './tray/notification'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -70,6 +71,15 @@ app.whenReady().then(() => {
       trayController.setActiveRunId(null)
     }
     windowController.getWindow()?.webContents.send(ipcChannels.jobStatus, { status: 'exited', ...ev })
+
+    const payload = buildNotificationPayload({ runId: ev.runId, exitCode: ev.code, platform: process.platform })
+    const n = new Notification(payload)
+    n.on('click', () => {
+      windowController.show()
+      windowController.getWindow()?.focus()
+      windowController.getWindow()?.webContents.send('app:navigate', { path: `/report/${ev.runId}` })
+    })
+    n.show()
   })
   processManager.onStart((ev) => {
     activeRunId = ev.runId
@@ -86,6 +96,15 @@ app.whenReady().then(() => {
       status: 'error',
       error: ev.error
     })
+
+    const payload = buildNotificationPayload({ runId: ev.runId, exitCode: 1, platform: process.platform })
+    const n = new Notification(payload)
+    n.on('click', () => {
+      windowController.show()
+      windowController.getWindow()?.focus()
+      windowController.getWindow()?.webContents.send('app:navigate', { path: `/report/${ev.runId}` })
+    })
+    n.show()
   })
 
   ipcMain.handle(ipcChannels.jobStart, async (_evt, cfg) => {

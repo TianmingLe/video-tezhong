@@ -14,6 +14,8 @@ export type JobStatusEvent =
 
 export type ExportLogResult = { success: true } | { success: false; error: string }
 
+export type AppNavigateEvent = { path: string }
+
 export type DesktopApi = {
   version: string
   job: {
@@ -22,5 +24,8 @@ export type DesktopApi = {
     onLog: (runId: string, callback: (line: string) => void) => () => void
     onStatus: (runId: string, callback: (ev: JobStatusEvent) => void) => () => void
     exportLog: (runId: string) => Promise<ExportLogResult>
+  }
+  app: {
+    onNavigate: (callback: (ev: AppNavigateEvent) => void) => () => void
   }
 }

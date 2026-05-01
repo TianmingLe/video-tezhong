@@ -28,6 +28,13 @@ const api: DesktopApi = {
     exportLog: async (runId) => {
       return await ipcRenderer.invoke(ipcChannels.jobExportLog, runId)
     }
+  },
+  app: {
+    onNavigate: (callback) => {
+      const handler = (_evt: unknown, payload: { path: string }) => callback(payload)
+      ipcRenderer.on('app:navigate', handler as never)
+      return () => ipcRenderer.removeListener('app:navigate', handler as never)
+    }
   }
 }
 
