@@ -5,6 +5,7 @@ describe('ipcChannels', () => {
   test('has stable channel names', () => {
     expect(ipcChannels.jobLog).toBe('job:log')
     expect(ipcChannels.jobStatus).toBe('job:status')
+    expect(ipcChannels.jobStart).toBe('job:start')
+    expect(ipcChannels.jobCancel).toBe('job:cancel')
   })
 })
-

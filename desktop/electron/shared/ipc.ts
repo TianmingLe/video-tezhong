@@ -1,5 +1,6 @@
 export const ipcChannels = {
   jobLog: 'job:log',
-  jobStatus: 'job:status'
+  jobStatus: 'job:status',
+  jobStart: 'job:start',
+  jobCancel: 'job:cancel'
 } as const
-
