@@ -5,9 +5,9 @@ import { fileURLToPath } from 'node:url'
 import { ipcChannels } from '@shared/ipc'
 import { PythonProcessManager } from './process/PythonProcessManager'
 import { TrayController } from './tray/TrayController'
-import type { TrayConfig } from './tray/types'
 import { WindowController } from './window/WindowController'
-import { buildNotificationPayload } from './tray/notification'
+import { runNotifyFlow } from './notify/notifyFlow'
+import type { TrayConfig } from './tray/types'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -73,15 +73,27 @@ app.whenReady().then(() => {
       trayController.setActiveRunId(null)
     }
     windowController.getWindow()?.webContents.send(ipcChannels.jobStatus, { status: 'exited', ...ev })
-
-    const payload = buildNotificationPayload({ runId: ev.runId, exitCode: ev.code, platform: process.platform })
-    const n = new Notification(payload)
-    n.on('click', () => {
-      windowController.show()
-      windowController.getWindow()?.focus()
-      windowController.getWindow()?.webContents.send('app:navigate', { path: `/report/${ev.runId}` })
+    runNotifyFlow({
+      runId: ev.runId,
+      exitCode: ev.code,
+      platform: process.platform,
+      deps: {
+        createNotification: (payload) => {
+          const n = new Notification(payload)
+          return {
+            onClick: (cb) => n.on('click', cb),
+            show: () => n.show()
+          }
+        },
+        showAndFocusWindow: () => {
+          windowController.show()
+          windowController.getWindow()?.focus()
+        },
+        sendNavigate: (path) => {
+          windowController.getWindow()?.webContents.send('app:navigate', { path })
+        }
+      }
     })
-    n.show()
   })
   processManager.onStart((ev) => {
     activeRunId = ev.runId
@@ -98,15 +110,27 @@ app.whenReady().then(() => {
       status: 'error',
       error: ev.error
     })
-
-    const payload = buildNotificationPayload({ runId: ev.runId, exitCode: 1, platform: process.platform })
-    const n = new Notification(payload)
-    n.on('click', () => {
-      windowController.show()
-      windowController.getWindow()?.focus()
-      windowController.getWindow()?.webContents.send('app:navigate', { path: `/report/${ev.runId}` })
+    runNotifyFlow({
+      runId: ev.runId,
+      exitCode: 1,
+      platform: process.platform,
+      deps: {
+        createNotification: (payload) => {
+          const n = new Notification(payload)
+          return {
+            onClick: (cb) => n.on('click', cb),
+            show: () => n.show()
+          }
+        },
+        showAndFocusWindow: () => {
+          windowController.show()
+          windowController.getWindow()?.focus()
+        },
+        sendNavigate: (path) => {
+          windowController.getWindow()?.webContents.send('app:navigate', { path })
+        }
+      }
     })
-    n.show()
   })
 
   ipcMain.handle(ipcChannels.jobStart, async (_evt, cfg) => {
