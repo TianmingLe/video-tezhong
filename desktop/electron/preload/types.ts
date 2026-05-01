@@ -41,26 +41,41 @@ export type TaskHistoryItem = {
   endTime: number | null
 }
 
-export type TaskTemplateConfig = {
-  scriptName: string
+export type JobSnapshot = {
+  runId: string
+  state: TaskHistoryStatus
+  pid: number | null
+  exitCode: number | null
+  signal: string | null
+  error: string | null
+}
+
+export type JobQueueStatus = {
+  maxConcurrency: number
+  running: JobSnapshot[]
+  queued: JobSnapshot[]
+  jobs: Record<string, JobSnapshot>
+}
+
+export type KbItem = {
+  id: number
+  name: string
+  script: string
   scenario: string
+  gatewayWs: string | null
+  env: Record<string, string>
+  isDefault: boolean
 }
 
-export type TaskTemplate = {
-  id: string
-  title: string
-  tags: string[]
-  createdAt: number
-  config: TaskTemplateConfig
+export type KbSaveInput = {
+  id?: number
+  name: string
+  script: string
+  scenario: string
+  gatewayWs?: string | null
+  env?: Record<string, string>
+  isDefault?: boolean
 }
-
-export type TaskTemplateSaveInput = { title: string; tags: string[]; config: TaskTemplateConfig }
-
-export type HistoryItem = TaskHistoryItem
-
-export type TemplateItem = TaskTemplate
-
-export type TemplateSaveInput = { id?: string; title: string; tags: string[]; config: TaskTemplateConfig }
 
 export type DesktopApi = {
   version: string
@@ -70,14 +85,13 @@ export type DesktopApi = {
     onLog: (runId: string, callback: (line: string) => void) => () => void
     onStatus: (runId: string, callback: (ev: JobStatusEvent) => void) => () => void
     exportLog: (runId: string) => Promise<ExportLogResult>
+    queueStatus: () => Promise<JobQueueStatus>
+    history: () => Promise<TaskHistoryItem[]>
   }
-  history: {
-    list: () => Promise<HistoryItem[]>
-    get: (runId: string) => Promise<HistoryItem | null>
-  }
-  templates: {
-    list: () => Promise<TemplateItem[]>
-    save: (input: TemplateSaveInput) => Promise<TemplateItem>
+  kb: {
+    list: () => Promise<KbItem[]>
+    save: (input: KbSaveInput) => Promise<KbItem>
+    setDefault: (id: number) => Promise<KbItem>
   }
   tray: {
     getConfig: () => Promise<TrayConfig>

@@ -4,10 +4,11 @@ export const ipcChannels = {
   jobStart: 'job:start',
   jobCancel: 'job:cancel',
   jobExportLog: 'job:exportLog',
-  historyList: 'history:list',
-  historyGet: 'history:get',
-  templatesList: 'templates:list',
-  templatesSave: 'templates:save',
+  jobQueueStatus: 'job:queueStatus',
+  jobHistory: 'job:history',
+  kbList: 'kb:list',
+  kbSave: 'kb:save',
+  kbSetDefault: 'kb:setDefault',
   trayGetConfig: 'tray:getConfig',
   trayUpdateConfig: 'tray:updateConfig'
 } as const

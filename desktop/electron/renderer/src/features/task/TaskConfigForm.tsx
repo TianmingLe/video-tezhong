@@ -31,7 +31,8 @@ export function TaskConfigForm(props: TaskConfigFormProps) {
     handleSubmit,
     formState: { errors },
     setValue,
-    watch
+    watch,
+    getValues
   } = useForm<TaskConfig>({
     resolver: zodResolver(taskConfigSchema),
     defaultValues: defaults
@@ -50,6 +51,26 @@ export function TaskConfigForm(props: TaskConfigFormProps) {
   const addEnv = () => {
     const key = `KEY_${envKeys.length + 1}`
     setValue(`env.${key}` as const, '')
+  }
+
+  const saveAsTemplate = async () => {
+    const name = window.prompt('模板名称')
+    const trimmed = String(name || '').trim()
+    if (!trimmed) return
+
+    const v = getValues()
+    try {
+      await window.api.kb.save({
+        name: trimmed,
+        script: v.script,
+        scenario: v.scenario,
+        gatewayWs: v.gatewayWs || '',
+        env: v.env || {}
+      })
+      window.alert('已保存为模板')
+    } catch (e) {
+      window.alert(String((e as Error).message || e))
+    }
   }
 
   return (
@@ -122,11 +143,15 @@ export function TaskConfigForm(props: TaskConfigFormProps) {
       </div>
 
       <div className="row">
-        <button type="submit" className="btn">
-          开始任务
-        </button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button type="submit" className="btn">
+            开始任务
+          </button>
+          <button type="button" className="btn" onClick={saveAsTemplate}>
+            保存为模板
+          </button>
+        </div>
       </div>
     </form>
   )
 }
-

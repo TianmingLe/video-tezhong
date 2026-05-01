@@ -27,22 +27,23 @@ const api: DesktopApi = {
     },
     exportLog: async (runId) => {
       return await ipcRenderer.invoke(ipcChannels.jobExportLog, runId)
-    }
-  },
-  history: {
-    list: async () => {
-      return await ipcRenderer.invoke(ipcChannels.historyList)
     },
-    get: async (runId) => {
-      return await ipcRenderer.invoke(ipcChannels.historyGet, runId)
+    queueStatus: async () => {
+      return await ipcRenderer.invoke(ipcChannels.jobQueueStatus)
+    },
+    history: async () => {
+      return await ipcRenderer.invoke(ipcChannels.jobHistory)
     }
   },
-  templates: {
+  kb: {
     list: async () => {
-      return await ipcRenderer.invoke(ipcChannels.templatesList)
+      return await ipcRenderer.invoke(ipcChannels.kbList)
     },
     save: async (input) => {
-      return await ipcRenderer.invoke(ipcChannels.templatesSave, input)
+      return await ipcRenderer.invoke(ipcChannels.kbSave, input)
+    },
+    setDefault: async (id) => {
+      return await ipcRenderer.invoke(ipcChannels.kbSetDefault, id)
     }
   },
   tray: {
