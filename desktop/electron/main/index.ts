@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { ipcChannels } from '@shared/ipc'
 import { PythonProcessManager } from './process/PythonProcessManager'
 import { TrayController } from './tray/TrayController'
+import type { TrayConfig } from './tray/types'
 import { WindowController } from './window/WindowController'
 import { buildNotificationPayload } from './tray/notification'
 
@@ -57,6 +58,7 @@ app.whenReady().then(() => {
   trayController.init({
     windowController,
     config: { tooltip: 'OmniScraper Desktop' },
+    trayConfigPersistence: { userDataPath: app.getPath('userData'), fs },
     onCancelRun: async (runId) => {
       await processManager.kill(runId)
     }
@@ -135,6 +137,14 @@ app.whenReady().then(() => {
     } catch (e) {
       return { success: false, error: String((e as Error)?.message || e) }
     }
+  })
+
+  ipcMain.handle(ipcChannels.trayGetConfig, async () => {
+    return trayController.getTrayConfig()
+  })
+
+  ipcMain.handle(ipcChannels.trayUpdateConfig, async (_evt, partial: Partial<TrayConfig> | null) => {
+    return trayController.updateTrayConfig(partial ?? {})
   })
 
   windowController.show()

@@ -2,8 +2,8 @@ import { app, Menu, nativeImage, Tray, type MenuItemConstructorOptions } from 'e
 import fs from 'node:fs'
 import { getTrayIconCandidatePaths, pickFirstExistingPath, type TrayIconConfig } from './trayIcon'
 import type { WindowController } from '../window/WindowController'
-import { getDefaultTrayConfig } from './trayConfig'
-import type { TrayConfig, TrayLeftClickMode } from './types'
+import { getDefaultTrayConfig, loadTrayConfig, saveTrayConfig, type TrayConfigFs } from './trayConfig'
+import type { TrayConfig } from './types'
 import { buildTrayMenuTemplate } from './trayMenu'
 
 export type TrayRuntimeConfig = {
@@ -16,6 +16,7 @@ export type TrayControllerInitOptions = {
   windowController: WindowController
   config?: TrayRuntimeConfig
   onCancelRun?: (runId: string) => void | Promise<void>
+  trayConfigPersistence?: { userDataPath: string; fs: TrayConfigFs }
 }
 
 export class TrayController {
@@ -28,6 +29,7 @@ export class TrayController {
   private windowVisible = false
   private onCancelRun?: (runId: string) => void | Promise<void>
   private menu: Menu | null = null
+  private trayConfigPersistence: { userDataPath: string; fs: TrayConfigFs } | null = null
 
   static getInstance(): TrayController {
     if (!TrayController.instance) TrayController.instance = new TrayController()
@@ -37,7 +39,11 @@ export class TrayController {
   init(opts: TrayControllerInitOptions): void {
     this.windowController = opts.windowController
     this.config = opts.config ?? {}
-    this.trayConfig = { ...getDefaultTrayConfig(process.platform), ...(this.config.tray ?? {}) }
+    this.trayConfigPersistence = opts.trayConfigPersistence ?? this.trayConfigPersistence
+    const base = this.trayConfigPersistence
+      ? loadTrayConfig({ platform: process.platform, userDataPath: this.trayConfigPersistence.userDataPath, fs: this.trayConfigPersistence.fs })
+      : getDefaultTrayConfig(process.platform)
+    this.trayConfig = { ...base, ...(this.config.tray ?? {}) }
     this.onCancelRun = opts.onCancelRun
 
     if (this.tray) {
@@ -49,7 +55,7 @@ export class TrayController {
     this.tray = new Tray(icon)
     if (this.config.tooltip) this.tray.setToolTip(this.config.tooltip)
 
-    this.tray.on('right-click', () => this.popUpMenu())
+    this.tray.on('right-click', () => this.handleRightClick())
     this.tray.on('click', () => this.handleLeftClick())
 
     this.refreshMenu()
@@ -57,6 +63,13 @@ export class TrayController {
 
   updateTrayConfig(partial: Partial<TrayConfig>): TrayConfig {
     this.trayConfig = { ...this.trayConfig, ...partial }
+    if (this.trayConfigPersistence) {
+      saveTrayConfig({
+        userDataPath: this.trayConfigPersistence.userDataPath,
+        fs: this.trayConfigPersistence.fs,
+        config: this.trayConfig
+      })
+    }
     this.refreshMenu()
     return this.trayConfig
   }
@@ -114,10 +127,11 @@ export class TrayController {
     if (!this.tray) return
     if (behavior === 'menu') this.popUpMenu()
     if (behavior === 'toggle') this.windowController?.toggleVisibility()
-    if (behavior === 'show') {
-      this.windowController?.show()
-      this.windowController?.getWindow()?.focus()
-    }
+  }
+
+  private handleRightClick(): void {
+    if (!this.tray) return
+    if (this.trayConfig.rightClick === 'menu') this.popUpMenu()
   }
 
   private popUpMenu(): void {
@@ -182,6 +196,24 @@ export class TrayController {
     })
 
     this.menu = Menu.buildFromTemplate(template)
-    this.tray?.setContextMenu(this.menu)
+    if (this.trayConfig.rightClick === 'menu') this.tray?.setContextMenu(this.menu)
+    else this.tray?.setContextMenu(null)
+    this.refreshBadge()
+  }
+
+  private refreshBadge(): void {
+    const tray = this.tray
+    if (!tray) return
+    const setTitle = (tray as unknown as { setTitle?: (title: string) => void }).setTitle
+    if (typeof setTitle !== 'function') return
+    if (!this.trayConfig.showBadgeOnRunning) {
+      setTitle('')
+      return
+    }
+    if (!this.activeRunId) {
+      setTitle('')
+      return
+    }
+    setTitle('●')
   }
 }

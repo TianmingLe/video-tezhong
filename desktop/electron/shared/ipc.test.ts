@@ -8,5 +8,7 @@ describe('ipcChannels', () => {
     expect(ipcChannels.jobStart).toBe('job:start')
     expect(ipcChannels.jobCancel).toBe('job:cancel')
     expect(ipcChannels.jobExportLog).toBe('job:exportLog')
+    expect(ipcChannels.trayGetConfig).toBe('tray:getConfig')
+    expect(ipcChannels.trayUpdateConfig).toBe('tray:updateConfig')
   })
 })

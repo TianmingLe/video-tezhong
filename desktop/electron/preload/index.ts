@@ -29,6 +29,14 @@ const api: DesktopApi = {
       return await ipcRenderer.invoke(ipcChannels.jobExportLog, runId)
     }
   },
+  tray: {
+    getConfig: async () => {
+      return await ipcRenderer.invoke(ipcChannels.trayGetConfig)
+    },
+    updateConfig: async (partial) => {
+      return await ipcRenderer.invoke(ipcChannels.trayUpdateConfig, partial)
+    }
+  },
   app: {
     onNavigate: (callback) => {
       const handler = (_evt: unknown, payload: { path: string }) => callback(payload)

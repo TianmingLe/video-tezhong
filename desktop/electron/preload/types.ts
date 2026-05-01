@@ -16,6 +16,16 @@ export type ExportLogResult = { success: true } | { success: false; error: strin
 
 export type AppNavigateEvent = { path: string }
 
+export type TrayLeftClickMode = 'menu' | 'toggle' | 'none'
+
+export type TrayRightClickMode = 'menu' | 'none'
+
+export type TrayConfig = {
+  leftClick: TrayLeftClickMode
+  rightClick: TrayRightClickMode
+  showBadgeOnRunning: boolean
+}
+
 export type DesktopApi = {
   version: string
   job: {
@@ -24,6 +34,10 @@ export type DesktopApi = {
     onLog: (runId: string, callback: (line: string) => void) => () => void
     onStatus: (runId: string, callback: (ev: JobStatusEvent) => void) => () => void
     exportLog: (runId: string) => Promise<ExportLogResult>
+  }
+  tray: {
+    getConfig: () => Promise<TrayConfig>
+    updateConfig: (partial: Partial<TrayConfig>) => Promise<TrayConfig>
   }
   app: {
     onNavigate: (callback: (ev: AppNavigateEvent) => void) => () => void
