@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ipcChannels } from '@shared/ipc'
@@ -51,6 +52,22 @@ app.whenReady().then(() => {
   ipcMain.handle(ipcChannels.jobCancel, async (_evt, runId: string) => {
     await processManager.kill(runId)
     return { success: true }
+  })
+
+  ipcMain.handle(ipcChannels.jobExportLog, async (_evt, runId: string) => {
+    const logs = processManager.getLogs(runId).join('\n') + '\n'
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: '导出日志',
+      defaultPath: `${runId}.log`,
+      filters: [{ name: 'Log', extensions: ['log', 'txt'] }]
+    })
+    if (canceled || !filePath) return { success: false, error: 'cancelled' }
+    try {
+      fs.writeFileSync(filePath, logs, 'utf-8')
+      return { success: true }
+    } catch (e) {
+      return { success: false, error: String((e as Error)?.message || e) }
+    }
   })
 
   createWindow()

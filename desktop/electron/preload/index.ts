@@ -17,6 +17,16 @@ const api: DesktopApi = {
       }
       ipcRenderer.on(ipcChannels.jobLog, handler as never)
       return () => ipcRenderer.removeListener(ipcChannels.jobLog, handler as never)
+    },
+    onStatus: (runId, callback) => {
+      const handler = (_evt: unknown, payload: { runId: string }) => {
+        if (payload.runId === runId) callback(payload as never)
+      }
+      ipcRenderer.on(ipcChannels.jobStatus, handler as never)
+      return () => ipcRenderer.removeListener(ipcChannels.jobStatus, handler as never)
+    },
+    exportLog: async (runId) => {
+      return await ipcRenderer.invoke(ipcChannels.jobExportLog, runId)
     }
   }
 }
