@@ -30,6 +30,7 @@ export type JobExitEvent = {
 export type PythonProcessManagerOptions = {
   pythonBin: string
   maxLogLines?: number
+  logSink?: (ev: { runId: string; line: string }) => void
 }
 
 type JobState = {
@@ -42,6 +43,7 @@ type JobState = {
 export class PythonProcessManager {
   private pythonBin: string
   private maxLogLines: number
+  private logSink?: (ev: { runId: string; line: string }) => void
   private jobs: Map<string, JobState>
   private completedLogs: Map<string, string[]>
   private logListeners: Set<(ev: JobLogEvent) => void>
@@ -52,6 +54,7 @@ export class PythonProcessManager {
   constructor(opts: PythonProcessManagerOptions) {
     this.pythonBin = opts.pythonBin
     this.maxLogLines = typeof opts.maxLogLines === 'number' ? opts.maxLogLines : 1000
+    this.logSink = opts.logSink
     this.jobs = new Map()
     this.completedLogs = new Map()
     this.logListeners = new Set()
@@ -186,6 +189,7 @@ export class PythonProcessManager {
       const line = raw.replace(/\r$/, '').trim()
       if (!line) continue
       this.appendLog(st, line)
+      this.emitToSink(runId, line)
       const ev = this.buildLogEvent(runId, line)
       for (const cb of this.logListeners) cb(ev)
     }
@@ -201,6 +205,7 @@ export class PythonProcessManager {
     st.stderrBuf = ''
     for (const line of leftovers) {
       this.appendLog(st, line)
+      this.emitToSink(runId, line)
       const ev = this.buildLogEvent(runId, line)
       for (const cb of this.logListeners) cb(ev)
     }
@@ -221,5 +226,13 @@ export class PythonProcessManager {
       if (obj && typeof obj === 'object') parsed = obj as Record<string, unknown>
     } catch {}
     return { runId, line, ts, parsed }
+  }
+
+  private emitToSink(runId: string, line: string): void {
+    const sink = this.logSink
+    if (!sink) return
+    try {
+      sink({ runId, line })
+    } catch {}
   }
 }

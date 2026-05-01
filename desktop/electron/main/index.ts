@@ -4,6 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ipcChannels } from '@shared/ipc'
 import { PythonProcessManager } from './process/PythonProcessManager'
+import { createLogArchive } from './logs'
 import { TrayController } from './tray/TrayController'
 import { WindowController } from './window/WindowController'
 import { runNotifyFlow } from './notify/notifyFlow'
@@ -14,7 +15,6 @@ import { createTemplatesStore } from './store/templatesStore'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const processManager = new PythonProcessManager({ pythonBin: 'python3', maxLogLines: 1000 })
 const trayController = TrayController.getInstance()
 let activeRunId: string | null = null
 let isQuitting = false
@@ -100,6 +100,17 @@ function createJsonFileStoreAdapter(args: { userDataPath: string; name: string }
 app.whenReady().then(() => {
   const userDataPath = app.getPath('userData')
   process.env.OMNI_USER_DATA_PATH = userDataPath
+
+  const logArchive = createLogArchive({ userDataPath })
+  logArchive.ensureDir()
+
+  const processManager = new PythonProcessManager({
+    pythonBin: 'python3',
+    maxLogLines: 1000,
+    logSink: ({ runId, line }) => {
+      logArchive.appendLog(runId, line)
+    }
+  })
 
   const historyStore = createHistoryStore({ adapter: createJsonFileStoreAdapter({ userDataPath, name: 'history' }) })
   const templatesStore = createTemplatesStore({
@@ -218,19 +229,15 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle(ipcChannels.jobExportLog, async (_evt, runId: string) => {
-    const logs = processManager.getLogs(runId).join('\n') + '\n'
     const { canceled, filePath } = await dialog.showSaveDialog({
       title: '导出日志',
       defaultPath: `${runId}.log`,
       filters: [{ name: 'Log', extensions: ['log', 'txt'] }]
     })
     if (canceled || !filePath) return { success: false, error: 'cancelled' }
-    try {
-      fs.writeFileSync(filePath, logs, 'utf-8')
-      return { success: true }
-    } catch (e) {
-      return { success: false, error: String((e as Error)?.message || e) }
-    }
+
+    const fallbackContent = processManager.getLogs(runId).join('\n') + '\n'
+    return logArchive.exportLog(runId, filePath, { fallbackContent })
   })
 
   ipcMain.handle(ipcChannels.historyList, async () => {
