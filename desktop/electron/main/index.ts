@@ -4,12 +4,19 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ipcChannels } from '@shared/ipc'
 import { PythonProcessManager } from './process/PythonProcessManager'
+import { TrayController } from './tray/TrayController'
 import { WindowController } from './window/WindowController'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 const processManager = new PythonProcessManager({ pythonBin: 'python3', maxLogLines: 1000 })
+const trayController = TrayController.getInstance()
+let activeRunId: string | null = null
+let isQuitting = false
+app.on('before-quit', () => {
+  isQuitting = true
+})
 
 function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -29,22 +36,44 @@ function createMainWindow(): BrowserWindow {
     win.loadFile(path.join(__dirname, '../renderer/index.html'))
   }
 
+  if (process.platform !== 'darwin') {
+    win.on('close', (e) => {
+      if (isQuitting) return
+      e.preventDefault()
+      win.hide()
+    })
+  }
+
   return win
 }
 
 const windowController = new WindowController({
   createWindow: createMainWindow,
-  onWindowVisibilityChange: () => {}
+  onWindowVisibilityChange: (visible) => trayController.setWindowVisible(visible)
 })
 
 app.whenReady().then(() => {
+  trayController.init({
+    windowController,
+    config: { tooltip: 'OmniScraper Desktop' },
+    onCancelRun: async (runId) => {
+      await processManager.kill(runId)
+    }
+  })
+
   processManager.onLog((ev) => {
     windowController.getWindow()?.webContents.send(ipcChannels.jobLog, ev)
   })
   processManager.onExit((ev) => {
+    if (activeRunId === ev.runId) {
+      activeRunId = null
+      trayController.setActiveRunId(null)
+    }
     windowController.getWindow()?.webContents.send(ipcChannels.jobStatus, { status: 'exited', ...ev })
   })
   processManager.onStart((ev) => {
+    activeRunId = ev.runId
+    trayController.setActiveRunId(ev.runId)
     windowController.getWindow()?.webContents.send(ipcChannels.jobStatus, {
       runId: ev.runId,
       status: 'started',
@@ -66,6 +95,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle(ipcChannels.jobCancel, async (_evt, runId: string) => {
     await processManager.kill(runId)
+    if (activeRunId === runId) {
+      activeRunId = null
+      trayController.setActiveRunId(null)
+    }
     return { success: true }
   })
 
