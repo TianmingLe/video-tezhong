@@ -12,6 +12,58 @@ async function flush(): Promise<void> {
 }
 
 describe('JobQueue', () => {
+  test('start 异步较慢时也会严格限制并发=2', async () => {
+    let nextPid = 10
+    const queue: Array<{
+      promise: Promise<{ success: true; pid: number }>
+      resolve: (v: { success: true; pid: number }) => void
+    }> = []
+
+    const makeDefer = () => {
+      let resolve!: (v: { success: true; pid: number }) => void
+      const promise = new Promise<{ success: true; pid: number }>((r) => {
+        resolve = r
+      })
+      const d = { promise, resolve }
+      queue.push(d)
+      return d
+    }
+
+    const d1 = makeDefer()
+    const d2 = makeDefer()
+    const d3 = makeDefer()
+
+    const start = vi.fn(async () => await queue.shift()!.promise)
+    const killTree = vi.fn(async () => {})
+    const q = new JobQueue({ start, killTree, maxConcurrency: 2 })
+
+    const p1 = q.enqueue(req('r1'))
+    const p2 = q.enqueue(req('r2'))
+    const p3 = q.enqueue(req('r3'))
+
+    const r3 = await p3
+    expect(r3).toEqual({ success: true, state: 'queued', position: 1 })
+
+    await flush()
+    expect(start).toHaveBeenCalledTimes(2)
+
+    d1.resolve({ success: true, pid: nextPid++ })
+    d2.resolve({ success: true, pid: nextPid++ })
+    expect(await p1).toEqual({ success: true, state: 'running' })
+    expect(await p2).toEqual({ success: true, state: 'running' })
+
+    const exitP = q.onExit({ runId: 'r1', code: 0, signal: null })
+    await flush()
+    expect(start).toHaveBeenCalledTimes(3)
+
+    d3.resolve({ success: true, pid: nextPid++ })
+    await exitP
+
+    const snap = q.getSnapshot()
+    expect(snap.running.map((j) => j.runId).sort()).toEqual(['r2', 'r3'])
+    expect(snap.jobs['r3']?.state).toBe('running')
+  })
+
   test('并发=2 时，第 3 个进入 queued', async () => {
     let nextPid = 100
     const start = vi.fn(async () => ({ success: true as const, pid: nextPid++ }))
@@ -96,4 +148,3 @@ describe('JobQueue', () => {
     expect(snap.jobs['r3']?.state).toBe('running')
   })
 })
-

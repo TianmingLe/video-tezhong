@@ -60,6 +60,7 @@ export class JobQueue {
   private jobs: Map<string, JobRecord>
   private runningOrder: string[]
   private queueOrder: string[]
+  private starting: Set<string>
 
   constructor(opts: JobQueueOptions) {
     this.deps = { start: opts.start, killTree: opts.killTree }
@@ -67,6 +68,7 @@ export class JobQueue {
     this.jobs = new Map()
     this.runningOrder = []
     this.queueOrder = []
+    this.starting = new Set()
   }
 
   getSnapshot(): JobQueueSnapshot {
@@ -105,7 +107,7 @@ export class JobQueue {
     }
     this.jobs.set(runId, rec)
 
-    if (this.runningOrder.length < this.maxConcurrency) {
+    if (this.runningOrder.length + this.starting.size < this.maxConcurrency) {
       const started = await this.startRun(runId)
       if (!started) return { success: false, error: rec.error ?? 'start failed' }
       return { success: true, state: 'running' }
@@ -157,7 +159,7 @@ export class JobQueue {
   }
 
   private async maybeStartNext(): Promise<void> {
-    while (this.runningOrder.length < this.maxConcurrency && this.queueOrder.length > 0) {
+    while (this.runningOrder.length + this.starting.size < this.maxConcurrency && this.queueOrder.length > 0) {
       const nextId = this.queueOrder.shift()
       if (!nextId) break
       const rec = this.jobs.get(nextId)
@@ -172,18 +174,39 @@ export class JobQueue {
     const rec = this.jobs.get(runId)
     if (!rec) return false
     if (rec.state === 'cancelled') return false
+    if (this.starting.has(runId)) return false
 
-    const res = await this.deps.start(rec.req)
+    this.starting.add(runId)
+
+    let res: JobStartResult
+    try {
+      res = await this.deps.start(rec.req)
+    } catch (e) {
+      res = { success: false, error: String((e as any)?.message || e) }
+    } finally {
+      this.starting.delete(runId)
+    }
+
     if (!res.success) {
       rec.state = 'error'
       rec.error = res.error
+      await this.maybeStartNext()
       return false
     }
 
-    rec.pid = res.pid
-    rec.state = 'running'
+    const cur = this.jobs.get(runId)
+    if (!cur) return false
+
+    if (cur.state === 'cancelled') {
+      cur.pid = res.pid
+      await this.deps.killTree(res.pid)
+      await this.maybeStartNext()
+      return false
+    }
+
+    cur.pid = res.pid
+    cur.state = 'running'
     this.runningOrder.push(runId)
     return true
   }
 }
-

@@ -1,6 +1,7 @@
 import { spawn, type ChildProcessByStdio } from 'node:child_process'
 import type { Readable } from 'node:stream'
 import path from 'node:path'
+import treeKill from 'tree-kill'
 
 export type JobConfig = {
   runId: string
@@ -148,6 +149,8 @@ export class PythonProcessManager {
     const st = this.jobs.get(runId)
     if (!st) return
     const child = st.child
+    const pid = child.pid
+    if (!pid) return
 
     const exited = new Promise<void>((resolve) => {
       const off = this.onExit((ev) => {
@@ -158,17 +161,14 @@ export class PythonProcessManager {
       })
     })
 
-    if (!child.killed) child.kill('SIGTERM')
-
-    const timeout = new Promise<void>((resolve) => setTimeout(resolve, 1500))
-    await Promise.race([exited, timeout])
-
-    if (this.jobs.has(runId) && !child.killed) {
-      try {
-        child.kill('SIGKILL')
-      } catch {}
-      await exited
+    if (!child.killed) {
+      await new Promise<void>((resolve) => {
+        treeKill(pid, 'SIGKILL', () => resolve())
+      })
     }
+
+    const timeout = new Promise<void>((resolve) => setTimeout(resolve, 4000))
+    await Promise.race([exited, timeout])
   }
 
   private handleChunk(runId: string, which: 'stdout' | 'stderr', chunk: string): void {

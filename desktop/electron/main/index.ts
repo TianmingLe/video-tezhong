@@ -9,8 +9,11 @@ import { TrayController } from './tray/TrayController'
 import { WindowController } from './window/WindowController'
 import { runNotifyFlow } from './notify/notifyFlow'
 import type { TrayConfig } from './tray/types'
-import { createHistoryStore, type StoreAdapter as HistoryStoreAdapter } from './store/historyStore'
 import { createTemplatesStore } from './store/templatesStore'
+import { getDb } from './db'
+import { createTasksRepo } from './db/tasksRepo'
+import treeKill from 'tree-kill'
+import { createJobRuntime } from './job/jobRuntime'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -22,12 +25,9 @@ app.on('before-quit', () => {
   isQuitting = true
 })
 
-function inferScenario(args: unknown): string {
-  if (!Array.isArray(args)) return ''
-  const parts = args.map((x) => String(x))
-  const idx = parts.indexOf('--scenario')
-  if (idx < 0) return ''
-  return String(parts[idx + 1] ?? '').trim()
+type StoreAdapter = {
+  get: <T>(key: string) => T | undefined
+  set: <T>(key: string, value: T) => void
 }
 
 function createMainWindow(): BrowserWindow {
@@ -64,7 +64,7 @@ const windowController = new WindowController({
   onWindowVisibilityChange: (visible) => trayController.setWindowVisible(visible)
 })
 
-function createJsonFileStoreAdapter(args: { userDataPath: string; name: string }): HistoryStoreAdapter {
+function createJsonFileStoreAdapter(args: { userDataPath: string; name: string }): StoreAdapter {
   const filePath = path.join(args.userDataPath, `${args.name}.json`)
 
   const readRoot = (): Record<string, unknown> => {
@@ -104,6 +104,9 @@ app.whenReady().then(() => {
   const logArchive = createLogArchive({ userDataPath })
   logArchive.ensureDir()
 
+  const db = getDb()
+  const tasksRepo = createTasksRepo(db)
+
   const processManager = new PythonProcessManager({
     pythonBin: 'python3',
     maxLogLines: 1000,
@@ -112,18 +115,25 @@ app.whenReady().then(() => {
     }
   })
 
-  const historyStore = createHistoryStore({ adapter: createJsonFileStoreAdapter({ userDataPath, name: 'history' }) })
   const templatesStore = createTemplatesStore({
     adapter: createJsonFileStoreAdapter({ userDataPath, name: 'templates' }),
     key: 'taskTemplates'
   })
+
+  const killTree = async (pid: number): Promise<void> => {
+    await new Promise<void>((resolve) => {
+      treeKill(pid, 'SIGKILL', () => resolve())
+    })
+  }
+
+  const jobRuntime = createJobRuntime({ processManager, tasksRepo, killTree, maxConcurrency: 2 })
 
   trayController.init({
     windowController,
     config: { tooltip: 'OmniScraper Desktop' },
     trayConfigPersistence: { userDataPath, fs },
     onCancelRun: async (runId) => {
-      await processManager.kill(runId)
+      await jobRuntime.cancel(runId)
     }
   })
 
@@ -132,11 +142,15 @@ app.whenReady().then(() => {
   })
   processManager.onExit((ev) => {
     if (activeRunId === ev.runId) {
-      activeRunId = null
-      trayController.setActiveRunId(null)
+      const running = jobRuntime.queue.getSnapshot().running
+      const next = running.length ? running[running.length - 1]!.runId : null
+      activeRunId = next
+      trayController.setActiveRunId(next)
     }
-    historyStore.applyStatusChange({ runId: ev.runId, status: 'exited', exitCode: ev.code, ts: Date.now() })
     windowController.getWindow()?.webContents.send(ipcChannels.jobStatus, { status: 'exited', ...ev })
+
+    const cur = tasksRepo.getById(ev.runId)
+    if (cur?.status === 'cancelled') return
     runNotifyFlow({
       runId: ev.runId,
       exitCode: ev.code,
@@ -162,7 +176,6 @@ app.whenReady().then(() => {
   processManager.onStart((ev) => {
     activeRunId = ev.runId
     trayController.setActiveRunId(ev.runId)
-    historyStore.applyStatusChange({ runId: ev.runId, status: 'running', ts: Date.now() })
     windowController.getWindow()?.webContents.send(ipcChannels.jobStatus, {
       runId: ev.runId,
       status: 'started',
@@ -170,7 +183,6 @@ app.whenReady().then(() => {
     })
   })
   processManager.onError((ev) => {
-    historyStore.applyStatusChange({ runId: ev.runId, status: 'error', ts: Date.now() })
     windowController.getWindow()?.webContents.send(ipcChannels.jobStatus, {
       runId: ev.runId,
       status: 'error',
@@ -199,31 +211,17 @@ app.whenReady().then(() => {
     })
   })
 
-  ipcMain.handle(ipcChannels.jobStart, async (_evt, cfg: { runId: string; script: string; args: string[] } | null) => {
-    const runId = String(cfg?.runId || '').trim()
-    if (runId) {
-      historyStore.applyStatusChange({
-        runId,
-        status: 'queued',
-        scriptName: path.basename(String(cfg?.script || '').trim()),
-        scenario: inferScenario(cfg?.args),
-        ts: Date.now()
-      })
-    }
-
-    const res = await processManager.start(cfg as never)
-    if (!res.success && runId) {
-      historyStore.applyStatusChange({ runId, status: 'error', ts: Date.now() })
-    }
-    return res
+  ipcMain.handle(ipcChannels.jobStart, async (_evt, cfg: { runId: string; script: string; args: string[]; env?: Record<string, string> } | null) => {
+    return await jobRuntime.enqueue(cfg as never)
   })
 
   ipcMain.handle(ipcChannels.jobCancel, async (_evt, runId: string) => {
-    historyStore.applyStatusChange({ runId, status: 'cancelled', ts: Date.now() })
-    await processManager.kill(runId)
+    await jobRuntime.cancel(runId)
     if (activeRunId === runId) {
-      activeRunId = null
-      trayController.setActiveRunId(null)
+      const running = jobRuntime.queue.getSnapshot().running
+      const next = running.length ? running[running.length - 1]!.runId : null
+      activeRunId = next
+      trayController.setActiveRunId(next)
     }
     return { success: true }
   })
@@ -241,11 +239,29 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle(ipcChannels.historyList, async () => {
-    return historyStore.list()
+    return tasksRepo.getAll().map((row) => ({
+      runId: row.run_id,
+      scriptName: row.script,
+      scenario: row.scenario,
+      status: row.status,
+      exitCode: row.exit_code,
+      startTime: row.start_time,
+      endTime: row.end_time
+    }))
   })
 
   ipcMain.handle(ipcChannels.historyGet, async (_evt, runId: string) => {
-    return historyStore.get(runId)
+    const row = tasksRepo.getById(runId)
+    if (!row) return null
+    return {
+      runId: row.run_id,
+      scriptName: row.script,
+      scenario: row.scenario,
+      status: row.status,
+      exitCode: row.exit_code,
+      startTime: row.start_time,
+      endTime: row.end_time
+    }
   })
 
   ipcMain.handle(ipcChannels.templatesList, async () => {

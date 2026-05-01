@@ -5,7 +5,10 @@ export type JobConfig = {
   env?: Record<string, string>
 }
 
-export type JobStartResult = { success: true; pid: number } | { success: false; error: string }
+export type JobStartResult =
+  | { success: true; state: 'running' }
+  | { success: true; state: 'queued'; position: number }
+  | { success: false; error: string }
 
 export type JobStatusEvent =
   | { runId: string; status: 'started'; pid: number }
