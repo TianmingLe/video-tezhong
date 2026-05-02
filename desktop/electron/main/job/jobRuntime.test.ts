@@ -123,4 +123,41 @@ describe('jobRuntime', () => {
 
     runtime.dispose()
   })
+
+  test('queueUpdate: 200ms 内多次变更只广播一次', async () => {
+    vi.useFakeTimers()
+    const tasksRepo = createMockTasksRepo()
+    const pm = createFakeProcessManager()
+    const killTree = vi.fn(async () => {})
+    const onQueueUpdate = vi.fn()
+
+    const runtime = createJobRuntime({
+      processManager: pm as any,
+      tasksRepo,
+      killTree,
+      now: () => 0,
+      maxConcurrency: 2,
+      onQueueUpdate
+    })
+
+    await runtime.enqueue({ runId: 'r1', script: 'scripts/a.py', args: ['--scenario', 's1'] })
+    await runtime.enqueue({ runId: 'r2', script: 'scripts/a.py', args: ['--scenario', 's1'] })
+    await runtime.enqueue({ runId: 'r3', script: 'scripts/a.py', args: ['--scenario', 's1'] })
+
+    expect(onQueueUpdate).toHaveBeenCalledTimes(0)
+    await vi.advanceTimersByTimeAsync(199)
+    expect(onQueueUpdate).toHaveBeenCalledTimes(0)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(onQueueUpdate).toHaveBeenCalledTimes(1)
+    expect(onQueueUpdate.mock.calls[0]?.[0]).toMatchObject({ pending: 1 })
+
+    await runtime.cancel('r3')
+    await runtime.cancel('r2')
+
+    await vi.advanceTimersByTimeAsync(200)
+    expect(onQueueUpdate).toHaveBeenCalledTimes(2)
+
+    runtime.dispose()
+    vi.useRealTimers()
+  })
 })

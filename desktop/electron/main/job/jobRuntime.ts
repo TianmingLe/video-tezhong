@@ -3,6 +3,11 @@ import { JobQueue, type EnqueueResult, type JobRequest } from './JobQueue'
 import type { TasksRepo } from '../db/tasksRepo'
 import type { TaskRecord } from '../db/types'
 
+export type JobQueueStatus = {
+  running: string[]
+  pending: number
+}
+
 export type ProcessManagerLike = {
   start: (cfg: JobRequest) => Promise<{ success: true; pid: number } | { success: false; error: string }>
   onStart: (cb: (ev: { runId: string; pid: number }) => void) => () => void
@@ -47,10 +52,31 @@ function ensureTaskRow(args: { tasksRepo: TasksRepo; runId: string; script: stri
   })
 }
 
+function createThrottle(fn: () => void, waitMs: number): { trigger: () => void; cancel: () => void } {
+  let timer: ReturnType<typeof setTimeout> | null = null
+
+  const trigger = () => {
+    if (timer) return
+    timer = setTimeout(() => {
+      timer = null
+      fn()
+    }, waitMs)
+  }
+
+  const cancel = () => {
+    if (!timer) return
+    clearTimeout(timer)
+    timer = null
+  }
+
+  return { trigger, cancel }
+}
+
 export function createJobRuntime(args: {
   processManager: ProcessManagerLike
   tasksRepo: TasksRepo
   killTree: (pid: number) => Promise<void>
+  onQueueUpdate?: (ev: JobQueueStatus) => void
   now?: () => number
   maxConcurrency?: number
 }): JobRuntime {
@@ -62,15 +88,26 @@ export function createJobRuntime(args: {
     maxConcurrency: typeof args.maxConcurrency === 'number' ? args.maxConcurrency : 2
   })
 
+  const throttledQueueUpdate = args.onQueueUpdate
+    ? createThrottle(() => {
+        const snap = queue.getSnapshot()
+        args.onQueueUpdate?.({ running: snap.running.map((x) => x.runId), pending: snap.queued.length })
+      }, 200)
+    : null
+
+  const emitQueueUpdate = () => throttledQueueUpdate?.trigger()
+
   const handleStart = (ev: { runId: string; pid: number }) => {
     const ts = now()
     try {
       args.tasksRepo.updateStatus({ run_id: ev.runId, status: 'running', start_time: ts })
     } catch {}
+    emitQueueUpdate()
   }
 
   const handleExit = async (ev: { runId: string; code: number | null; signal: NodeJS.Signals | null }) => {
     await queue.onExit(ev)
+    emitQueueUpdate()
 
     const ts = now()
     const cur = args.tasksRepo.getById(ev.runId)
@@ -96,7 +133,9 @@ export function createJobRuntime(args: {
       }
       args.tasksRepo.updateStatus({ run_id: ev.runId, status: 'error', end_time: ts, duration })
     } catch {}
+    emitQueueUpdate()
   }
+
 
   const offStart = args.processManager.onStart(handleStart)
   const offExit = args.processManager.onExit((ev) => {
@@ -117,6 +156,7 @@ export function createJobRuntime(args: {
     }
 
     const res = await queue.enqueue(cfg)
+    emitQueueUpdate()
     if (!res.success && runId) {
       const ts = now()
       const cur = args.tasksRepo.getById(runId)
@@ -141,14 +181,15 @@ export function createJobRuntime(args: {
     } catch {}
 
     await queue.cancel(id)
+    emitQueueUpdate()
   }
 
   const dispose = () => {
     offStart()
     offExit()
     offError()
+    throttledQueueUpdate?.cancel()
   }
 
   return { queue, enqueue, cancel, dispose }
 }
-

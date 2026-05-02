@@ -84,7 +84,15 @@ app.whenReady().then(() => {
     })
   }
 
-  const jobRuntime = createJobRuntime({ processManager, tasksRepo, killTree, maxConcurrency: 2 })
+  const jobRuntime = createJobRuntime({
+    processManager,
+    tasksRepo,
+    killTree,
+    maxConcurrency: 2,
+    onQueueUpdate: (ev) => {
+      windowController.getWindow()?.webContents.send(ipcChannels.jobQueueUpdate, ev)
+    }
+  })
 
   trayController.init({
     windowController,
