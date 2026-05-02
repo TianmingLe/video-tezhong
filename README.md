@@ -2,6 +2,21 @@
 
 一个面向自媒体内容的“采集 → 下载 → 处理（ASR/OCR/LLM）→ 导出”的工具链项目。当前已完成 Phase 1（MVP）核心链路：以抖音（dy）为验证平台，实现命令行模式的“抓取 detail → 下载视频（yt-dlp）→ Whisper 转写 → 输出结构化结果 → 清理视频但保留链接”闭环。
 
+## 桌面端下载与安装
+
+如果你是要使用桌面应用（Electron Desktop），请从 GitHub Releases 获取安装包：
+
+- Nightly（持续更新，推荐）：https://github.com/TianmingLe/video-tezhong/releases/tag/nightly
+- 版本化 Release（v*）：https://github.com/TianmingLe/video-tezhong/releases
+
+## 文档（桌面端）
+
+- 用户手册：[USER_MANUAL.md](file:///workspace/docs/USER_MANUAL.md)
+- 报错修复手册：[TROUBLESHOOTING.md](file:///workspace/docs/TROUBLESHOOTING.md)
+- 快速指南（补充）：[USER_GUIDE.md](file:///workspace/docs/USER_GUIDE.md)
+- 托盘说明：[TRAY_GUIDE.md](file:///workspace/docs/TRAY_GUIDE.md)
+- 崩溃处理：[CRASH_GUIDE.md](file:///workspace/docs/CRASH_GUIDE.md)
+
 ## 当前实现的主要功能（Phase 1）
 
 - 抖音 detail 抓取：通过 `--specified_id` 输入视频 URL 或 ID，抓取内容并落盘 JSONL（包含 `aweme_url` / `video_download_url`）
