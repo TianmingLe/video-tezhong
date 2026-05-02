@@ -89,8 +89,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           draft: false
-          prerelease: false
-          make_latest: true
+          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
+          make_latest: ${{ !(contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc')) }}
           files: |
             artifacts/**/release/latest*.yml
             artifacts/**/release/*.blockmap
