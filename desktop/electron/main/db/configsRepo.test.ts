@@ -6,14 +6,22 @@ import { createDbForTest, initDb } from './index'
 import { createConfigsRepo } from './configsRepo'
 
 let tmpFile: string | null = null
+let dbToClose: { close: () => void } | null = null
 afterEach(() => {
-  if (tmpFile && fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile)
+  try {
+    dbToClose?.close()
+  } catch {}
+  dbToClose = null
+  try {
+    if (tmpFile && fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile)
+  } catch {}
   tmpFile = null
 })
 
 function createDb() {
   tmpFile = path.join(os.tmpdir(), `omni-${Date.now()}-${Math.random()}.db`)
   const db = createDbForTest(tmpFile)
+  dbToClose = db
   initDb(db)
   return db
 }
@@ -99,4 +107,3 @@ describe('configsRepo', () => {
     expect(() => repo.setDefault(999)).toThrow(/not found/i)
   })
 })
-

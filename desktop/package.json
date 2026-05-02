@@ -2,6 +2,11 @@
   "name": "desktop",
   "private": true,
   "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TianmingLe/video-tezhong.git",
+    "directory": "desktop"
+  },
   "type": "module",
   "main": "dist/main/index.js",
   "scripts": {
