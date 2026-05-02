@@ -17,5 +17,7 @@ describe('ipcChannels', () => {
     expect(ipcChannels.kbSetDefault).toBe('kb:setDefault')
     expect(ipcChannels.trayGetConfig).toBe('tray:getConfig')
     expect(ipcChannels.trayUpdateConfig).toBe('tray:updateConfig')
+    expect(ipcChannels.appNotify).toBe('app:notify')
+    expect(ipcChannels.appGetDbState).toBe('app:getDbState')
   })
 })

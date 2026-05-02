@@ -1,4 +1,4 @@
-import type { SqliteDb } from './index'
+import { runWithRetry, type SqliteDb } from './index'
 import type { TaskRecord, TaskStatus } from './types'
 
 export type TaskInsert = Omit<TaskRecord, 'id'>
@@ -38,18 +38,20 @@ export function createTasksRepo(db: SqliteDb): TasksRepo {
     if (!scenario) throw new Error('scenario is required')
     if (!status) throw new Error('status is required')
 
-    db.prepare(
-      `insert into tasks(run_id, script, scenario, status, exit_code, start_time, end_time, duration)
-       values(@run_id, @script, @scenario, @status, @exit_code, @start_time, @end_time, @duration)`
-    ).run({
-      run_id,
-      script,
-      scenario,
-      status,
-      exit_code: input.exit_code ?? null,
-      start_time: input.start_time ?? null,
-      end_time: input.end_time ?? null,
-      duration: input.duration ?? null
+    runWithRetry(() => {
+      db.prepare(
+        `insert into tasks(run_id, script, scenario, status, exit_code, start_time, end_time, duration)
+         values(@run_id, @script, @scenario, @status, @exit_code, @start_time, @end_time, @duration)`
+      ).run({
+        run_id,
+        script,
+        scenario,
+        status,
+        exit_code: input.exit_code ?? null,
+        start_time: input.start_time ?? null,
+        end_time: input.end_time ?? null,
+        duration: input.duration ?? null
+      })
     })
 
     const row = getById(run_id)
@@ -67,7 +69,7 @@ export function createTasksRepo(db: SqliteDb): TasksRepo {
     if (hasKey(input, 'end_time')) sets.push('end_time=@end_time')
     if (hasKey(input, 'duration')) sets.push('duration=@duration')
 
-    const res = db.prepare(`update tasks set ${sets.join(', ')} where run_id=@run_id`).run(input)
+    const res = runWithRetry(() => db.prepare(`update tasks set ${sets.join(', ')} where run_id=@run_id`).run(input))
     if (res.changes <= 0) throw new Error('task not found')
 
     const row = getById(run_id)
@@ -84,4 +86,3 @@ export function createTasksRepo(db: SqliteDb): TasksRepo {
 
   return { insert, updateStatus, getAll, getById }
 }
-

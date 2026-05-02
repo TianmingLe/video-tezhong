@@ -1,4 +1,4 @@
-import type { SqliteDb } from './index'
+import { runWithRetry, type SqliteDb } from './index'
 import type { ConfigRecord } from './types'
 
 export type ConfigInsert = Omit<ConfigRecord, 'id'>
@@ -33,17 +33,19 @@ export function createConfigsRepo(db: SqliteDb): ConfigsRepo {
     if (!script) throw new Error('script is required')
     if (!scenario) throw new Error('scenario is required')
 
-    const res = db.prepare(
-      `insert into configs(name, script, scenario, gateway_ws, env, is_default)
-       values(@name, @script, @scenario, @gateway_ws, @env, @is_default)`
-    ).run({
-      name,
-      script,
-      scenario,
-      gateway_ws: input.gateway_ws ?? null,
-      env: String(input.env ?? ''),
-      is_default: input.is_default ?? 0
-    })
+    const res = runWithRetry(() =>
+      db.prepare(
+        `insert into configs(name, script, scenario, gateway_ws, env, is_default)
+         values(@name, @script, @scenario, @gateway_ws, @env, @is_default)`
+      ).run({
+        name,
+        script,
+        scenario,
+        gateway_ws: input.gateway_ws ?? null,
+        env: String(input.env ?? ''),
+        is_default: input.is_default ?? 0
+      })
+    )
 
     const row = getById(Number(res.lastInsertRowid))
     if (!row) throw new Error('insert failed')
@@ -69,7 +71,7 @@ export function createConfigsRepo(db: SqliteDb): ConfigsRepo {
 
     if (sets.length === 0) return cur
 
-    const res = db.prepare(`update configs set ${sets.join(', ')} where id=@id`).run(input)
+    const res = runWithRetry(() => db.prepare(`update configs set ${sets.join(', ')} where id=@id`).run(input))
     if (res.changes <= 0) throw new Error('config not found')
 
     const row = getById(input.id)
@@ -86,9 +88,8 @@ export function createConfigsRepo(db: SqliteDb): ConfigsRepo {
       if (!row) throw new Error('config not found')
       return row
     })
-    return tx()
+    return runWithRetry(() => tx())
   }
 
   return { insert, getAll, update, setDefault }
 }
-

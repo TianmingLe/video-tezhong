@@ -67,6 +67,14 @@ const api: DesktopApi = {
       const handler = (_evt: unknown, payload: { path: string }) => callback(payload)
       ipcRenderer.on('app:navigate', handler as never)
       return () => ipcRenderer.removeListener('app:navigate', handler as never)
+    },
+    onNotify: (callback) => {
+      const handler = (_evt: unknown, payload: unknown) => callback(payload as never)
+      ipcRenderer.on(ipcChannels.appNotify, handler as never)
+      return () => ipcRenderer.removeListener(ipcChannels.appNotify, handler as never)
+    },
+    getDbState: async () => {
+      return await ipcRenderer.invoke(ipcChannels.appGetDbState)
     }
   }
 }

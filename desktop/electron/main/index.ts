@@ -9,7 +9,7 @@ import { TrayController } from './tray/TrayController'
 import { WindowController } from './window/WindowController'
 import { runNotifyFlow } from './notify/notifyFlow'
 import type { TrayConfig } from './tray/types'
-import { getDb } from './db'
+import { dbState, getDb } from './db'
 import { createTasksRepo } from './db/tasksRepo'
 import { createConfigsRepo } from './db/configsRepo'
 import treeKill from 'tree-kill'
@@ -260,7 +260,18 @@ app.whenReady().then(() => {
     return trayController.updateTrayConfig(partial ?? {})
   })
 
+  ipcMain.handle(ipcChannels.appGetDbState, async () => {
+    return { isReadOnly: dbState.isReadOnly }
+  })
+
   windowController.show()
+
+  if (dbState.isReadOnly) {
+    windowController.getWindow()?.webContents.send(ipcChannels.appNotify, {
+      level: 'warning',
+      message: '数据库已以只读模式打开：写入操作将不可用'
+    })
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

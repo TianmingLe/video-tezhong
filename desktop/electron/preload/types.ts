@@ -21,6 +21,10 @@ export type ExportLogResult = { success: true } | { success: false; error: strin
 
 export type AppNavigateEvent = { path: string }
 
+export type AppNotifyEvent = { level: 'info' | 'warning' | 'error'; message: string }
+
+export type DbState = { isReadOnly: boolean }
+
 export type TrayLeftClickMode = 'menu' | 'toggle' | 'none'
 
 export type TrayRightClickMode = 'menu' | 'none'
@@ -66,5 +70,7 @@ export type DesktopApi = {
   }
   app: {
     onNavigate: (callback: (ev: AppNavigateEvent) => void) => () => void
+    onNotify: (callback: (ev: AppNotifyEvent) => void) => () => void
+    getDbState: () => Promise<DbState>
   }
 }

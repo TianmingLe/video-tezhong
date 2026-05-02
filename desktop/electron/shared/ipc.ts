@@ -12,5 +12,7 @@ export const ipcChannels = {
   kbSave: 'kb:save',
   kbSetDefault: 'kb:setDefault',
   trayGetConfig: 'tray:getConfig',
-  trayUpdateConfig: 'tray:updateConfig'
+  trayUpdateConfig: 'tray:updateConfig',
+  appNotify: 'app:notify',
+  appGetDbState: 'app:getDbState'
 } as const
