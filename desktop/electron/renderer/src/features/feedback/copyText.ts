@@ -4,7 +4,9 @@ export type CopyTextDeps = {
 }
 
 export async function copyText(text: string, deps: CopyTextDeps = {}): Promise<{ success: true } | { success: false; error: string }> {
-  const writeText = deps.writeText ?? navigator.clipboard?.writeText?.bind(navigator.clipboard)
+  const writeText =
+    deps.writeText ??
+    (typeof navigator !== 'undefined' ? navigator.clipboard?.writeText?.bind(navigator.clipboard) : undefined)
   const execCommandCopy = deps.execCommandCopy ?? defaultExecCommandCopy
 
   const fallback = (primaryError: unknown): { success: true } | { success: false; error: string } => {
