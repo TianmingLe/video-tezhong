@@ -4,6 +4,7 @@ import type { JobStatusEvent } from '../../../preload/types'
 import { RetryButton } from '../components/RetryButton'
 import { Skeleton } from '../components/Skeleton'
 import { LogViewer } from '../features/task/LogViewer'
+import { MAX_UI_LOG_LINES } from '../features/task/logBuffer'
 import { parseLogLine } from '../features/task/logUtils'
 import type { LogItem } from '../features/task/logTypes'
 
@@ -37,14 +38,21 @@ export function ReportPage() {
   const loadSeqRef = useRef(0)
   const loadingMoreRef = useRef(false)
   const pullTimerRef = useRef<number | null>(null)
+  const nextIdRef = useRef(0)
 
   const appendLines = (lines: string[]): number => {
     const cleaned = lines.map((x) => x.replace(/\r$/, '')).filter((x) => x.trim() !== '')
     if (cleaned.length === 0) return 0
     setLogs((prev) => {
-      const base = prev.length
-      const next = cleaned.map((line, i) => parseLogLine(line, base + i))
-      return [...prev, ...next]
+      let nextId = nextIdRef.current
+      const next = cleaned.map((line) => {
+        const item = parseLogLine(line, nextId)
+        nextId += 1
+        return item
+      })
+      nextIdRef.current = nextId
+      const merged = [...prev, ...next]
+      return merged.length > MAX_UI_LOG_LINES ? merged.slice(-MAX_UI_LOG_LINES) : merged
     })
     return cleaned.length
   }
@@ -94,6 +102,7 @@ export function ReportPage() {
 
     offsetRef.current = 0
     carryRef.current = ''
+    nextIdRef.current = 0
     setLogs([])
 
     try {

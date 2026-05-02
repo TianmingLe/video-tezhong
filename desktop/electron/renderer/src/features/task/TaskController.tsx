@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import type { TaskConfig } from './configSchema'
 import { TaskConfigForm } from './TaskConfigForm'
 import { LogViewer } from './LogViewer'
+import { MAX_UI_LOG_LINES } from './logBuffer'
 import { parseLogLine } from './logUtils'
 import type { LogItem } from './logTypes'
 import type { JobStatusEvent } from '../../../../preload/types'
@@ -24,6 +25,7 @@ export function TaskController(props: { initial?: Partial<TaskConfig>; onConfigC
   const [activeRunId, setActiveRunId] = useState<string | null>(null)
   const [items, setItems] = useState<LogItem[]>([])
   const startedAtRef = useRef<number>(0)
+  const nextIdRef = useRef(0)
   const lastCfgRef = useRef<TaskConfig | null>(null)
   const offLogRef = useRef<(() => void) | null>(null)
   const offStatusRef = useRef<(() => void) | null>(null)
@@ -56,12 +58,18 @@ export function TaskController(props: { initial?: Partial<TaskConfig>; onConfigC
 
     const runId = cfg.runId
     startedAtRef.current = Date.now()
+    nextIdRef.current = 0
     setActiveRunId(runId)
     setItems([])
     setStatus('running')
 
     offLogRef.current = window.api.job.onLog(runId, (line) => {
-      setItems((prev) => [...prev, parseLogLine(line, prev.length)])
+      setItems((prev) => {
+        const item = parseLogLine(line, nextIdRef.current)
+        nextIdRef.current += 1
+        const next = [...prev, item]
+        return next.length > MAX_UI_LOG_LINES ? next.slice(-MAX_UI_LOG_LINES) : next
+      })
     })
 
     offStatusRef.current = window.api.job.onStatus(runId, (ev: JobStatusEvent) => {
@@ -90,7 +98,12 @@ export function TaskController(props: { initial?: Partial<TaskConfig>; onConfigC
     if (!res.success) {
       resetSubscriptions()
       setStatus('error')
-      setItems((prev) => [...prev, parseLogLine(`ERROR: ${res.error}`, prev.length)])
+      setItems((prev) => {
+        const item = parseLogLine(`ERROR: ${res.error}`, nextIdRef.current)
+        nextIdRef.current += 1
+        const next = [...prev, item]
+        return next.length > MAX_UI_LOG_LINES ? next.slice(-MAX_UI_LOG_LINES) : next
+      })
     }
   }
 
