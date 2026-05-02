@@ -7,12 +7,13 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "dist": "npm run build && electron-builder --config electron-builder.yml",
-    "pack": "npm run build && electron-builder --dir --config electron-builder.yml",
+    "dist": "npm run build && electron-builder --config electron-builder.yml --publish never",
+    "pack": "npm run build && electron-builder --dir --config electron-builder.yml --publish never",
     "preview": "electron-vite preview",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "validate:yaml": "node scripts/validate-yaml.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

@@ -19,6 +19,7 @@ files:
   - '!electron/**'
   - '!scripts/**'
 mac:
+  identity: null
   target:
     - dmg
 win:
@@ -27,3 +28,6 @@ win:
 linux:
   target:
     - AppImage
+publish:
+  provider: github
+  releaseType: release

@@ -26,6 +26,10 @@ jobs:
         working-directory: desktop
         run: npm ci --no-audit --no-fund
 
+      - name: Validate YAML
+        working-directory: desktop
+        run: npm run validate:yaml
+
       - name: Test (desktop)
         working-directory: desktop
         run: npm test

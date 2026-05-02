@@ -35,11 +35,9 @@ jobs:
         working-directory: desktop
         run: npm ci --no-audit --no-fund
 
-      - name: Print signing env presence
-        shell: bash
-        run: |
-          echo "CSC_LINK present: ${{ secrets.CSC_LINK != '' }}"
-          echo "WIN_CSC_LINK present: ${{ secrets.WIN_CSC_LINK != '' }}"
+      - name: Validate YAML
+        working-directory: desktop
+        run: npm run validate:yaml
 
       - name: Test (desktop)
         working-directory: desktop
@@ -49,8 +47,16 @@ jobs:
         working-directory: desktop
         run: npm run typecheck
 
-      - name: Build distributables
+      - name: Build distributables (unsigned)
         working-directory: desktop
+        if: ${{ secrets.CSC_LINK == '' && secrets.WIN_CSC_LINK == '' && secrets.APPLE_ID == '' && secrets.APPLE_APP_SPECIFIC_PASSWORD == '' && secrets.APPLE_TEAM_ID == '' }}
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run dist
+
+      - name: Build distributables (signed)
+        working-directory: desktop
+        if: ${{ !(secrets.CSC_LINK == '' && secrets.WIN_CSC_LINK == '' && secrets.APPLE_ID == '' && secrets.APPLE_APP_SPECIFIC_PASSWORD == '' && secrets.APPLE_TEAM_ID == '') }}
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
           CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -69,8 +75,8 @@ jobs:
           path: desktop/release/**
           if-no-files-found: error
 
-  draft-release:
-    name: Draft Release
+  release:
+    name: Release
     runs-on: ubuntu-latest
     needs: build
     if: startsWith(github.ref, 'refs/tags/')
@@ -80,8 +86,13 @@ jobs:
         with:
           path: artifacts
 
-      - name: Create draft release
+      - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          draft: true
-          files: artifacts/**/*
+          draft: false
+          prerelease: false
+          make_latest: true
+          files: |
+            artifacts/**/release/latest*.yml
+            artifacts/**/release/*.blockmap
+            artifacts/**/release/**/*
