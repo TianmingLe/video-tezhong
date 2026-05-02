@@ -227,6 +227,72 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
                 rich_help_panel="Basic Configuration",
             ),
         ] = "",
+        limit: Annotated[
+            int,
+            typer.Option(
+                "--limit",
+                help="Limit the number of videos to process in search mode (1-50)",
+                rich_help_panel="Basic Configuration",
+            ),
+        ] = 1,
+        comment_depth: Annotated[
+            int,
+            typer.Option(
+                "--comment-depth",
+                help="Comment depth: 1=only top-level, 2=include sub-comments",
+                rich_help_panel="Comment Configuration",
+            ),
+        ] = 1,
+        output_format: Annotated[
+            str,
+            typer.Option(
+                "--output-format",
+                help="Output format: jsonl|markdown|all",
+                rich_help_panel="Basic Configuration",
+            ),
+        ] = "all",
+        dry_run: Annotated[
+            str,
+            typer.Option(
+                "--dry-run",
+                help="Dry run mode: only plan, no download/asr/llm, supports yes/true/t/y/1 or no/false/f/n/0",
+                rich_help_panel="Basic Configuration",
+                show_default=True,
+            ),
+        ] = "false",
+        enable_llm: Annotated[
+            str,
+            typer.Option(
+                "--enable-llm",
+                help="Enable LLM analysis pipeline, supports yes/true/t/y/1 or no/false/f/n/0",
+                rich_help_panel="LLM Configuration",
+                show_default=True,
+            ),
+        ] = str(config.ENABLE_LLM),
+        llm_model: Annotated[
+            str,
+            typer.Option(
+                "--llm-model",
+                help="LLM model name (user-provided string, e.g. THUDM/GLM-4.1V-9B-Thinking)",
+                rich_help_panel="LLM Configuration",
+            ),
+        ] = config.LLM_MODEL,
+        llm_base_url: Annotated[
+            str,
+            typer.Option(
+                "--llm-base-url",
+                help="OpenAI-compatible base_url (e.g. http://127.0.0.1:8000/v1)",
+                rich_help_panel="LLM Configuration",
+            ),
+        ] = config.LLM_BASE_URL,
+        llm_api_key: Annotated[
+            str,
+            typer.Option(
+                "--llm-api-key",
+                help="Optional API key for OpenAI-compatible service; if empty, read from env OPENAI_API_KEY",
+                rich_help_panel="LLM Configuration",
+            ),
+        ] = "",
         init_db: Annotated[
             Optional[InitDbOptionEnum],
             typer.Option(
@@ -243,6 +309,30 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
                 rich_help_panel="Account Configuration",
             ),
         ] = config.COOKIES,
+        xhs_cookie: Annotated[
+            str,
+            typer.Option(
+                "--xhs-cookie",
+                help="Xiaohongshu cookie string (higher priority than --cookies when platform=xhs)",
+                rich_help_panel="Account Configuration",
+            ),
+        ] = "",
+        dy_cookie: Annotated[
+            str,
+            typer.Option(
+                "--dy-cookie",
+                help="Reserved for future Douyin cookie override",
+                rich_help_panel="Account Configuration",
+            ),
+        ] = "",
+        bili_cookie: Annotated[
+            str,
+            typer.Option(
+                "--bili-cookie",
+                help="Reserved for future Bilibili cookie override",
+                rich_help_panel="Account Configuration",
+            ),
+        ] = "",
         specified_id: Annotated[
             str,
             typer.Option(
@@ -267,6 +357,73 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
                 rich_help_panel="Comment Configuration",
             ),
         ] = config.CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES,
+        top_comments: Annotated[
+            int,
+            typer.Option(
+                "--top-comments",
+                help="Top liked root comments to keep for LLM analysis",
+                rich_help_panel="Comment Configuration",
+            ),
+        ] = config.TOP_COMMENTS_LIMIT,
+        top_replies: Annotated[
+            int,
+            typer.Option(
+                "--top-replies",
+                help="Top liked replies to keep per root comment for LLM analysis",
+                rich_help_panel="Comment Configuration",
+            ),
+        ] = config.TOP_REPLIES_LIMIT,
+        force_regrab: Annotated[
+            str,
+            typer.Option(
+                "--force-regrab",
+                help="Force re-grab comments online even if cache exists, supports yes/true/t/y/1 or no/false/f/n/0",
+                rich_help_panel="Comment Configuration",
+                show_default=True,
+            ),
+        ] = "false",
+        ocr_enabled: Annotated[
+            str,
+            typer.Option(
+                "--ocr-enabled",
+                help="Enable OCR extraction from video frames, supports yes/true/t/y/1 or no/false/f/n/0",
+                rich_help_panel="OCR Configuration",
+                show_default=True,
+            ),
+        ] = str(config.OCR_ENABLED),
+        ocr_interval: Annotated[
+            int,
+            typer.Option(
+                "--ocr-interval",
+                help="Extract 1 frame every N seconds for OCR",
+                rich_help_panel="OCR Configuration",
+            ),
+        ] = config.OCR_INTERVAL_SEC,
+        ocr_model: Annotated[
+            str,
+            typer.Option(
+                "--ocr-model",
+                help="OCR model name/tag (e.g. ppocr_v4)",
+                rich_help_panel="OCR Configuration",
+            ),
+        ] = config.OCR_MODEL,
+        ocr_use_gpu: Annotated[
+            str,
+            typer.Option(
+                "--ocr-use-gpu",
+                help="Use GPU for OCR, supports yes/true/t/y/1 or no/false/f/n/0",
+                rich_help_panel="OCR Configuration",
+                show_default=True,
+            ),
+        ] = str(config.OCR_USE_GPU),
+        bili_sort: Annotated[
+            str,
+            typer.Option(
+                "--bili-sort",
+                help="Bilibili search sorting strategy (pubdate|click)",
+                rich_help_panel="Platform Configuration",
+            ),
+        ] = str(getattr(config, "BILI_SORT", "pubdate")),
         max_concurrency_num: Annotated[
             int,
             typer.Option(
@@ -315,7 +472,30 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
         enable_sub_comment = _to_bool(get_sub_comment)
         enable_headless = _to_bool(headless)
         enable_ip_proxy_value = _to_bool(enable_ip_proxy)
+        enable_llm_value = _to_bool(enable_llm)
+        dry_run_value = _to_bool(dry_run)
+        force_regrab_value = _to_bool(force_regrab)
+        ocr_enabled_value = _to_bool(ocr_enabled)
+        ocr_use_gpu_value = _to_bool(ocr_use_gpu)
         init_db_value = init_db.value if init_db else None
+
+        safe_limit = int(limit) if int(limit) > 0 else 1
+        if safe_limit > 50:
+            safe_limit = 50
+
+        safe_comment_depth = int(comment_depth)
+        if safe_comment_depth not in (1, 2):
+            safe_comment_depth = 1
+
+        safe_top_comments = int(top_comments) if int(top_comments) > 0 else 20
+        if safe_top_comments > 50:
+            safe_top_comments = 50
+
+        safe_top_replies = int(top_replies) if int(top_replies) > 0 else 5
+        if safe_top_replies > 20:
+            safe_top_replies = 20
+
+        safe_ocr_interval = int(ocr_interval) if int(ocr_interval) > 0 else int(config.OCR_INTERVAL_SEC)
 
         # Parse specified_id and creator_id into lists
         specified_id_list = [id.strip() for id in specified_id.split(",") if id.strip()] if specified_id else []
@@ -334,14 +514,33 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
         config.SAVE_DATA_OPTION = save_data_option.value
         config.COOKIES = cookies
         config.CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = max_comments_count_singlenotes
+        config.TOP_COMMENTS_LIMIT = safe_top_comments
+        config.TOP_REPLIES_LIMIT = safe_top_replies
+        config.OCR_ENABLED = ocr_enabled_value
+        config.OCR_INTERVAL_SEC = safe_ocr_interval
+        config.OCR_MODEL = ocr_model
+        config.OCR_USE_GPU = ocr_use_gpu_value
+        config.BILI_SORT = str(bili_sort or "pubdate").strip().lower() or "pubdate"
         config.MAX_CONCURRENCY_NUM = max_concurrency_num
         config.SAVE_DATA_PATH = save_data_path
         config.ENABLE_IP_PROXY = enable_ip_proxy_value
         config.IP_PROXY_POOL_COUNT = ip_proxy_pool_count
         config.IP_PROXY_PROVIDER_NAME = ip_proxy_provider_name
+        config.ENABLE_LLM = enable_llm_value
+        config.LLM_MODEL = llm_model
+        config.LLM_BASE_URL = llm_base_url
+        config.LLM_API_KEY = llm_api_key
 
         if pipeline == "mvp":
-            config.CRAWLER_TYPE = CrawlerTypeEnum.DETAIL.value
+            if config.CRAWLER_TYPE not in (CrawlerTypeEnum.SEARCH.value, CrawlerTypeEnum.DETAIL.value):
+                config.CRAWLER_TYPE = CrawlerTypeEnum.DETAIL.value
+
+        if safe_comment_depth == 1:
+            config.ENABLE_GET_COMMENTS = True
+            config.ENABLE_GET_SUB_COMMENTS = False
+        elif safe_comment_depth == 2:
+            config.ENABLE_GET_COMMENTS = True
+            config.ENABLE_GET_SUB_COMMENTS = True
 
         # Set platform-specific ID lists for detail/creator mode
         if specified_id_list:
@@ -373,6 +572,22 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
             lt=config.LOGIN_TYPE,
             type=config.CRAWLER_TYPE,
             pipeline=pipeline,
+            limit=safe_limit,
+            comment_depth=safe_comment_depth,
+            output_format=output_format,
+            dry_run=dry_run_value,
+            top_comments=safe_top_comments,
+            top_replies=safe_top_replies,
+            force_regrab=force_regrab_value,
+            ocr_enabled=config.OCR_ENABLED,
+            ocr_interval=config.OCR_INTERVAL_SEC,
+            ocr_model=config.OCR_MODEL,
+            ocr_use_gpu=config.OCR_USE_GPU,
+            bili_sort=getattr(config, "BILI_SORT", "pubdate"),
+            enable_llm=config.ENABLE_LLM,
+            llm_model=config.LLM_MODEL,
+            llm_base_url=config.LLM_BASE_URL,
+            llm_api_key=config.LLM_API_KEY,
             start=config.START_PAGE,
             keywords=config.KEYWORDS,
             get_comment=config.ENABLE_GET_COMMENTS,
@@ -381,6 +596,9 @@ async def parse_cmd(argv: Optional[Sequence[str]] = None):
             save_data_option=config.SAVE_DATA_OPTION,
             init_db=init_db_value,
             cookies=config.COOKIES,
+            xhs_cookie=xhs_cookie,
+            dy_cookie=dy_cookie,
+            bili_cookie=bili_cookie,
             specified_id=specified_id,
             creator_id=creator_id,
         )

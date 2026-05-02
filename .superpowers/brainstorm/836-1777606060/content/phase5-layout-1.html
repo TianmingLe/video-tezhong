@@ -1,0 +1,30 @@
+<h2>Phase 5 GUI：信息架构（先选一个主布局）</h2>
+<p class="subtitle">选择一个你更偏好的主界面布局；后续我会按该布局细化各页面与数据流。</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>左侧导航 + 主工作区（推荐）</h3>
+      <p>左侧：任务 / 控制台 / 报告 / 知识库 / 设置；右侧主区域切换内容。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>单页分区（上：配置；中：日志；下：预览）</h3>
+      <p>更像“控制台”；适合长时间盯着跑任务，页面切换最少。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>向导式（Step 1 配置 → Step 2 运行 → Step 3 结果）</h3>
+      <p>更适合新手；但查看历史与多任务会稍绕。</p>
+    </div>
+  </div>
+</div>
+
+<hr />
+<p class="subtitle">提示：你已确认“Python 后端零修改”，所以 GUI 将通过 spawn main.py + 读取 results 目录来联动。</p>
+

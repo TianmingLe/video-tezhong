@@ -1,0 +1,44 @@
+{
+  "name": "desktop",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "dist": "npm run build && electron-builder --config electron-builder.yml --publish never",
+    "pack": "npm run build && electron-builder --dir --config electron-builder.yml --publish never",
+    "preview": "electron-vite preview",
+    "test": "vitest run",
+    "test:e2e": "node scripts/run-playwright.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "validate:yaml": "node scripts/validate-yaml.mjs"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^3.10.0",
+    "@tanstack/react-virtual": "^3.13.12",
+    "better-sqlite3": "^12.9.0",
+    "electron-updater": "^6.6.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-hook-form": "^7.56.4",
+    "react-router-dom": "^6.30.1",
+    "tree-kill": "^1.2.2",
+    "zod": "^3.25.28"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.15.3",
+    "@types/react": "^18.3.20",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.4.1",
+    "electron": "^31.4.0",
+    "electron-builder": "^26.8.1",
+    "electron-vite": "^2.3.0",
+    "typescript": "^5.8.3",
+    "vite": "^5.4.19",
+    "vitest": "^2.1.9"
+  }
+}

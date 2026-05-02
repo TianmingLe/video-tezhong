@@ -88,6 +88,32 @@ SAVE_DATA_OPTION = "jsonl"  # csv or db or json or jsonl or sqlite or excel or p
 # Data saving path, if not specified by default, it will be saved to the data folder.
 SAVE_DATA_PATH = ""
 
+# ==================== LLM（LiteLLM / OpenAI兼容接口）配置 ====================
+# 是否启用 LLM 分析（在 mvp pipeline 后追加 AnalysisPipeline）
+ENABLE_LLM = False
+
+# LLM 模型名称（由用户通过 CLI 或环境变量提供）
+LLM_MODEL = ""
+
+# OpenAI 兼容接口 base_url（通常以 /v1 结尾）
+LLM_BASE_URL = ""
+
+# API Key（建议优先使用环境变量注入；此字段仅用于运行时暂存）
+LLM_API_KEY = ""
+
+# ==================== Batch（Phase 2.5）配置 ====================
+BATCH_CONCURRENT_LIMIT = 3
+BATCH_MAX_RETRIES = 3
+BATCH_RETRY_DELAY_SECONDS = 2
+
+BILI_SORT = "pubdate"
+
+OCR_ENABLED = False
+OCR_INTERVAL_SEC = 5
+OCR_MODEL = "ppocr_v4"
+OCR_USE_GPU = False
+OCR_TIMEOUT_SECONDS = 120
+
 # Browser file configuration cached by the user's browser
 USER_DATA_DIR = "%s_user_data_dir"  # %s will be replaced by platform name
 
@@ -112,6 +138,9 @@ CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = 10
 # Whether to enable the mode of crawling second-level comments. By default, crawling of second-level comments is not enabled.
 # If the old version of the project uses db, you need to refer to schema/tables.sql line 287 to add table fields.
 ENABLE_GET_SUB_COMMENTS = False
+
+TOP_COMMENTS_LIMIT = 20
+TOP_REPLIES_LIMIT = 5
 
 # word cloud related
 # Whether to enable generating comment word clouds
