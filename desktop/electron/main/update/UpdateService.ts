@@ -122,7 +122,7 @@ export class UpdateService {
     this.events.emit('event', { name: 'state', state: next })
   }
 
-  private emitEvent(ev: Omit<UpdateEvent, 'state'> & { state?: UpdateState }): void {
+  private emitEvent(ev: UpdateEventNoState): void {
     this.events.emit('event', { ...ev, state: this.state } as UpdateEvent)
   }
 
