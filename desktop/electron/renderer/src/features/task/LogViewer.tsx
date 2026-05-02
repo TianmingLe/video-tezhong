@@ -2,9 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { LogFilter, LogItem } from './logTypes'
 import { filterLogs } from './logUtils'
+import { Skeleton } from '../../components/Skeleton'
 
 export type LogViewerProps = {
   items: LogItem[]
+  hasMore?: boolean
+  loadingMore?: boolean
+  loadMoreError?: string | null
+  onLoadMore?: () => void
 }
 
 function useDebouncedValue<T>(value: T, delayMs: number) {
@@ -18,6 +23,7 @@ function useDebouncedValue<T>(value: T, delayMs: number) {
 
 export function LogViewer(props: LogViewerProps) {
   const parentRef = useRef<HTMLDivElement | null>(null)
+  const lastLoadMoreAtRef = useRef(0)
   const [level, setLevel] = useState<LogFilter['level']>('all')
   const [keywordRaw, setKeywordRaw] = useState('')
   const keyword = useDebouncedValue(keywordRaw, 200)
@@ -44,17 +50,30 @@ export function LogViewer(props: LogViewerProps) {
     if (filtered.length > 0) rowVirtualizer.scrollToIndex(filtered.length - 1, { align: 'end' })
   }, [filtered.length, follow])
 
+  const maybeLoadMore = () => {
+    if (!props.onLoadMore) return
+    if (props.loadingMore) return
+    if (props.loadMoreError) return
+    if (props.hasMore === false) return
+    const now = Date.now()
+    if (now - lastLoadMoreAtRef.current < 600) return
+    lastLoadMoreAtRef.current = now
+    props.onLoadMore()
+  }
+
   const onScroll = () => {
     const el = parentRef.current
     if (!el) return
     const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight
     const nearBottom = distanceToBottom < 20
+    const nearBottomForLoadMore = distanceToBottom < 240
     if (nearBottom) {
       setFollow(true)
       setNewCount(0)
     } else {
       setFollow(false)
     }
+    if (nearBottomForLoadMore) maybeLoadMore()
   }
 
   return (
@@ -99,6 +118,23 @@ export function LogViewer(props: LogViewerProps) {
           })}
         </div>
       </div>
+
+      {(props.loadingMore || props.loadMoreError || props.hasMore === false) && (
+        <div className="row" style={{ marginTop: 10, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          {props.loadingMore ? (
+            <Skeleton height={14} />
+          ) : props.loadMoreError ? (
+            <>
+              <div className="muted">加载失败：{props.loadMoreError}</div>
+              <button type="button" className="btn" onClick={() => props.onLoadMore?.()}>
+                重试
+              </button>
+            </>
+          ) : (
+            <div className="muted">已到末尾</div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -108,4 +144,3 @@ function renderLine(it: LogItem | undefined) {
   if (it.kind === 'text') return it.raw
   return it.msg
 }
-
