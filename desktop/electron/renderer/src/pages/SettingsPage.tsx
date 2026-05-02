@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { ConfigRecord, TrayConfig, TrayLeftClickMode } from '../../../preload/types'
 import { RetryButton } from '../components/RetryButton'
 import { useDbState } from '../contexts/DbStateContext'
+import { toastStore } from '../components/toast/toastStore'
 
 export function SettingsPage() {
   const { isReadOnly } = useDbState()
@@ -92,10 +93,51 @@ export function SettingsPage() {
     }
   }
 
+  const checkUpdate = async () => {
+    const checkingToastId = toastStore.show({ title: '更新', message: '正在检查更新…' })
+    try {
+      const state = await window.api.update.check()
+      if (state.status === 'checking') return
+      toastStore.dismiss(checkingToastId)
+
+      if (state.status === 'notAvailable') {
+        toastStore.show({ title: '更新', message: '当前已是最新版本' })
+        return
+      }
+      if (state.status === 'available' || state.status === 'downloading') {
+        toastStore.show({ title: '更新', message: '发现新版本，正在下载…' })
+        return
+      }
+      if (state.status === 'downloaded') {
+        toastStore.show({ title: '更新', message: '更新已下载完成' })
+        return
+      }
+      if (state.status === 'error') {
+        toastStore.show({ title: '更新', message: `检查更新失败：${state.error}` })
+        return
+      }
+      toastStore.show({ title: '更新', message: `更新状态：${state.status}` })
+    } catch (e) {
+      toastStore.dismiss(checkingToastId)
+      toastStore.show({ title: '更新', message: `检查更新失败：${String((e as Error)?.message || e)}` })
+    }
+  }
+
   return (
     <div className="page">
       <h1 className="page-title">设置</h1>
       <p className="page-subtitle">托盘行为配置（即时生效）。</p>
+
+      <div className="card" style={{ marginTop: 16, maxWidth: 520 }}>
+        <div className="row" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="label" style={{ marginBottom: 0 }}>
+            自动更新
+          </div>
+          <button type="button" className="btn" onClick={checkUpdate}>
+            检查更新
+          </button>
+        </div>
+      </div>
 
       <div className="card" style={{ marginTop: 16, maxWidth: 520 }}>
         <div className="row">

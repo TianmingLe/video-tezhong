@@ -14,5 +14,9 @@ export const ipcChannels = {
   trayGetConfig: 'tray:getConfig',
   trayUpdateConfig: 'tray:updateConfig',
   appNotify: 'app:notify',
-  appGetDbState: 'app:getDbState'
+  appGetDbState: 'app:getDbState',
+  updateCheck: 'update:check',
+  updateInstall: 'update:install',
+  updateState: 'update:state',
+  updateEvent: 'update:event'
 } as const

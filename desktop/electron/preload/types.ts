@@ -1,4 +1,5 @@
 import type { ConfigRecord, TaskRecord, TaskStatus } from '../main/db/types'
+import type { UpdateEvent, UpdateInstallResult, UpdateState } from '../main/update/UpdateService'
 
 export type JobConfig = {
   runId: string
@@ -36,6 +37,7 @@ export type TrayConfig = {
 }
 
 export type { TaskRecord, ConfigRecord, TaskStatus } from '../main/db/types'
+export type { UpdateState, UpdateEvent, UpdateInstallResult } from '../main/update/UpdateService'
 
 export type JobQueueStatus = {
   running: string[]
@@ -72,5 +74,11 @@ export type DesktopApi = {
     onNavigate: (callback: (ev: AppNavigateEvent) => void) => () => void
     onNotify: (callback: (ev: AppNotifyEvent) => void) => () => void
     getDbState: () => Promise<DbState>
+  }
+  update: {
+    check: () => Promise<UpdateState>
+    install: () => Promise<UpdateInstallResult>
+    getState: () => Promise<UpdateState>
+    onEvent: (callback: (ev: UpdateEvent) => void) => () => void
   }
 }

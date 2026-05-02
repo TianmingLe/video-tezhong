@@ -5,6 +5,8 @@ import { useAppNavigate } from '../useAppNavigate'
 import { useEffect } from 'react'
 import { QueueStatusProvider, useQueueStatus } from '../../contexts/QueueStatusContext'
 import { DbStateProvider, useDbState } from '../../contexts/DbStateContext'
+import { ToastHost } from '../../components/toast/ToastHost'
+import { UpdateToastHost } from '../../components/toast/UpdateToastHost'
 
 export function AppShell() {
   useAppNavigate()
@@ -69,6 +71,8 @@ function AppShellBody() {
       <SidebarNav />
       <main className="main">
         <Outlet />
+        <UpdateToastHost />
+        <ToastHost />
       </main>
     </div>
   )

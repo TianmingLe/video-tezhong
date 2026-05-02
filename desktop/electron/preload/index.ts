@@ -76,6 +76,22 @@ const api: DesktopApi = {
     getDbState: async () => {
       return await ipcRenderer.invoke(ipcChannels.appGetDbState)
     }
+  },
+  update: {
+    check: async () => {
+      return await ipcRenderer.invoke(ipcChannels.updateCheck)
+    },
+    install: async () => {
+      return await ipcRenderer.invoke(ipcChannels.updateInstall)
+    },
+    getState: async () => {
+      return await ipcRenderer.invoke(ipcChannels.updateState)
+    },
+    onEvent: (callback) => {
+      const handler = (_evt: unknown, payload: unknown) => callback(payload as never)
+      ipcRenderer.on(ipcChannels.updateEvent, handler as never)
+      return () => ipcRenderer.removeListener(ipcChannels.updateEvent, handler as never)
+    }
   }
 }
 

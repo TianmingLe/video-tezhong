@@ -14,6 +14,8 @@ import { createTasksRepo } from './db/tasksRepo'
 import { createConfigsRepo } from './db/configsRepo'
 import treeKill from 'tree-kill'
 import { createJobRuntime } from './job/jobRuntime'
+import { autoUpdater } from 'electron-updater'
+import { UpdateService } from './update/UpdateService'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -69,6 +71,11 @@ app.whenReady().then(() => {
   const db = getDb()
   const tasksRepo = createTasksRepo(db)
   const configsRepo = createConfigsRepo(db)
+  const updateService = new UpdateService(autoUpdater)
+
+  updateService.onEvent((ev) => {
+    windowController.getWindow()?.webContents.send(ipcChannels.updateEvent, ev)
+  })
 
   const processManager = new PythonProcessManager({
     pythonBin: 'python3',
@@ -262,6 +269,18 @@ app.whenReady().then(() => {
 
   ipcMain.handle(ipcChannels.appGetDbState, async () => {
     return { isReadOnly: dbState.isReadOnly }
+  })
+
+  ipcMain.handle(ipcChannels.updateCheck, async () => {
+    return await updateService.check()
+  })
+
+  ipcMain.handle(ipcChannels.updateInstall, async () => {
+    return await updateService.install()
+  })
+
+  ipcMain.handle(ipcChannels.updateState, async () => {
+    return updateService.getState()
   })
 
   windowController.show()
