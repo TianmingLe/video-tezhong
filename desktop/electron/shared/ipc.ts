@@ -1,4 +1,5 @@
 export const ipcChannels = {
+  perfGetStartup: 'perf:getStartup',
   jobLog: 'job:log',
   jobStatus: 'job:status',
   jobStart: 'job:start',

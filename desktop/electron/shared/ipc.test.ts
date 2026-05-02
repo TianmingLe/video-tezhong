@@ -3,6 +3,7 @@ import { ipcChannels } from './ipc'
 
 describe('ipcChannels', () => {
   test('has stable channel names', () => {
+    expect(ipcChannels.perfGetStartup).toBe('perf:getStartup')
     expect(ipcChannels.jobLog).toBe('job:log')
     expect(ipcChannels.jobStatus).toBe('job:status')
     expect(ipcChannels.jobStart).toBe('job:start')

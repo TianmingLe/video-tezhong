@@ -2,6 +2,7 @@ import type { ConfigRecord, TaskRecord, TaskStatus } from '../main/db/types'
 import type { UpdateEvent, UpdateInstallResult, UpdateState } from '../main/update/UpdateService'
 import type { OnboardingState } from '../main/onboarding/onboardingStore'
 import type { CheckPythonResult } from '../main/system/checkPython'
+import type { StartupMetricsSnapshot } from '../main/perf/startupMetrics'
 
 export type JobConfig = {
   runId: string
@@ -92,5 +93,8 @@ export type DesktopApi = {
   }
   system: {
     checkPython: () => Promise<CheckPythonResult>
+  }
+  perf: {
+    getStartup: () => Promise<StartupMetricsSnapshot>
   }
 }

@@ -12,6 +12,9 @@ export function SettingsPage() {
   const [kbConfigs, setKbConfigs] = useState<ConfigRecord[]>([])
   const [kbLoading, setKbLoading] = useState(true)
   const [kbError, setKbError] = useState<{ message: string; retry: () => Promise<void> } | null>(null)
+  const [startupPerf, setStartupPerf] = useState<Awaited<ReturnType<typeof window.api.perf.getStartup>> | null>(null)
+  const [startupPerfLoading, setStartupPerfLoading] = useState(false)
+  const [startupPerfError, setStartupPerfError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -134,6 +137,24 @@ export function SettingsPage() {
     }
   }
 
+  const loadStartupPerf = async () => {
+    setStartupPerfLoading(true)
+    try {
+      const res = await window.api.perf.getStartup()
+      setStartupPerf(res)
+      setStartupPerfError(null)
+    } catch (e) {
+      setStartupPerfError(String((e as Error)?.message || e))
+    } finally {
+      setStartupPerfLoading(false)
+    }
+  }
+
+  const formatMs = (v: unknown) => {
+    const n = typeof v === 'number' ? v : null
+    return n == null || !Number.isFinite(n) ? '-' : `${Math.round(n)}ms`
+  }
+
   return (
     <div className="page">
       <h1 className="page-title">设置</h1>
@@ -160,6 +181,41 @@ export function SettingsPage() {
           </button>
         </div>
       </div>
+
+      <details
+        className="card"
+        style={{ marginTop: 16, maxWidth: 520 }}
+        onToggle={(e) => {
+          const el = e.currentTarget
+          if (el.open && !startupPerf && !startupPerfLoading) void loadStartupPerf()
+        }}
+      >
+        <summary className="label" style={{ cursor: 'pointer', marginBottom: 0 }}>
+          开发者指标
+        </summary>
+        <div style={{ marginTop: 10 }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <button type="button" className="btn" onClick={loadStartupPerf} disabled={startupPerfLoading}>
+              刷新
+            </button>
+            {startupPerfLoading ? <div className="muted">加载中…</div> : null}
+            {startupPerfError ? <div className="muted">加载失败：{startupPerfError}</div> : null}
+          </div>
+
+          {startupPerf ? (
+            <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: '1fr auto', gap: 8 }}>
+              <div className="muted">whenReady</div>
+              <div>{formatMs(startupPerf.deltas.whenReady)}</div>
+              <div className="muted">createWindow</div>
+              <div>{formatMs(startupPerf.deltas.createWindow)}</div>
+              <div className="muted">didFinishLoad</div>
+              <div>{formatMs(startupPerf.deltas.didFinishLoad)}</div>
+              <div className="muted">readyToShow</div>
+              <div>{formatMs(startupPerf.deltas.readyToShow)}</div>
+            </div>
+          ) : null}
+        </div>
+      </details>
 
       <div className="card" style={{ marginTop: 16, maxWidth: 520 }}>
         <div className="row">

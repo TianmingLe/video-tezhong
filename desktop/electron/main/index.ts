@@ -18,11 +18,13 @@ import { autoUpdater } from 'electron-updater'
 import { UpdateService } from './update/UpdateService'
 import { createOnboardingStore } from './onboarding/onboardingStore'
 import { checkPython } from './system/checkPython'
+import { StartupMetrics } from './perf/startupMetrics'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 const trayController = TrayController.getInstance()
+const startupMetrics = new StartupMetrics()
 let activeRunId: string | null = null
 let isQuitting = false
 app.on('before-quit', () => {
@@ -39,6 +41,10 @@ function createMainWindow(): BrowserWindow {
       nodeIntegration: false
     }
   })
+
+  startupMetrics.mark('createWindow')
+  win.webContents.on('did-finish-load', () => startupMetrics.mark('didFinishLoad'))
+  win.once('ready-to-show', () => startupMetrics.mark('readyToShow'))
 
   const rendererUrl = process.env.ELECTRON_RENDERER_URL
   if (rendererUrl) {
@@ -64,6 +70,8 @@ const windowController = new WindowController({
 })
 
 app.whenReady().then(() => {
+  startupMetrics.mark('whenReady')
+
   const userDataPath = app.getPath('userData')
   process.env.OMNI_USER_DATA_PATH = userDataPath
 
@@ -189,6 +197,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle(ipcChannels.jobStart, async (_evt, cfg: { runId: string; script: string; args: string[]; env?: Record<string, string> } | null) => {
     return await jobRuntime.enqueue(cfg as never)
+  })
+
+  ipcMain.handle(ipcChannels.perfGetStartup, async () => {
+    return startupMetrics.getSnapshot()
   })
 
   ipcMain.handle(ipcChannels.jobCancel, async (_evt, runId: string) => {

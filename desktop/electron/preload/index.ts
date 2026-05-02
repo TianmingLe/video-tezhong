@@ -108,6 +108,11 @@ const api: DesktopApi = {
     checkPython: async () => {
       return await ipcRenderer.invoke(ipcChannels.systemCheckPython)
     }
+  },
+  perf: {
+    getStartup: async () => {
+      return await ipcRenderer.invoke(ipcChannels.perfGetStartup)
+    }
   }
 }
 
