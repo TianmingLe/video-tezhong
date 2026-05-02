@@ -9,6 +9,7 @@ import { copyText } from '../features/feedback/copyText'
 export function SettingsPage() {
   const navigate = useNavigate()
   const { isReadOnly } = useDbState()
+  const isWindows = typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent)
   const [trayConfig, setTrayConfig] = useState<TrayConfig | null>(null)
   const [kbConfigs, setKbConfigs] = useState<ConfigRecord[]>([])
   const [kbLoading, setKbLoading] = useState(true)
@@ -170,6 +171,21 @@ export function SettingsPage() {
     }
   }
 
+  const uninstallApp = async () => {
+    const ok = window.confirm('将启动卸载程序并退出应用，是否继续？')
+    if (!ok) return
+    const toastId = toastStore.show({ title: '卸载', message: '正在启动卸载程序…' })
+    try {
+      const res = await window.api.app.uninstall()
+      toastStore.dismiss(toastId)
+      if (res.success) return
+      toastStore.show({ title: '卸载', message: `启动失败：${res.error}` })
+    } catch (e) {
+      toastStore.dismiss(toastId)
+      toastStore.show({ title: '卸载', message: `启动失败：${String((e as Error)?.message || e)}` })
+    }
+  }
+
   const loadStartupPerf = async () => {
     setStartupPerfLoading(true)
     try {
@@ -246,6 +262,19 @@ export function SettingsPage() {
           </button>
         </div>
       </div>
+
+      {isWindows ? (
+        <div className="card" style={{ marginTop: 16, maxWidth: 520 }}>
+          <div className="row" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div className="label" style={{ marginBottom: 0 }}>
+              卸载
+            </div>
+            <button type="button" className="btn" onClick={uninstallApp}>
+              卸载应用
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <details
         className="card"
