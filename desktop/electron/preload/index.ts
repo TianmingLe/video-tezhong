@@ -121,6 +121,11 @@ const api: DesktopApi = {
     getStartup: async () => {
       return await ipcRenderer.invoke(ipcChannels.perfGetStartup)
     }
+  },
+  feedback: {
+    collectBundle: async (userInput) => {
+      return await ipcRenderer.invoke(ipcChannels.feedbackCollectBundle, { userInput: userInput ?? '' })
+    }
   }
 }
 

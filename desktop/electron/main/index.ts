@@ -19,6 +19,7 @@ import { UpdateService } from './update/UpdateService'
 import { createOnboardingStore } from './onboarding/onboardingStore'
 import { checkPython } from './system/checkPython'
 import { StartupMetrics } from './perf/startupMetrics'
+import { createFeedbackCollector } from './feedback'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -84,6 +85,13 @@ app.whenReady().then(() => {
   const configsRepo = createConfigsRepo(db)
   const updateService = new UpdateService(autoUpdater)
   const onboardingStore = createOnboardingStore({ userDataPath, fs })
+  const feedbackCollector = createFeedbackCollector({
+    userDataPath,
+    tasksRepo,
+    appVersion: app.getVersion(),
+    fs,
+    path
+  })
 
   updateService.onEvent((ev) => {
     windowController.getWindow()?.webContents.send(ipcChannels.updateEvent, ev)
@@ -313,6 +321,12 @@ app.whenReady().then(() => {
 
   ipcMain.handle(ipcChannels.systemCheckPython, async () => {
     return await checkPython()
+  })
+
+  ipcMain.handle(ipcChannels.feedbackCollectBundle, async (_evt, input: unknown) => {
+    const o = (input && typeof input === 'object' ? (input as Record<string, unknown>) : null) ?? {}
+    const userInput = typeof o.userInput === 'string' ? o.userInput : ''
+    return feedbackCollector.collectBundle({ userInput })
   })
 
   ipcMain.handle(ipcChannels.appGetDbState, async () => {

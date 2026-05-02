@@ -25,5 +25,6 @@ export const ipcChannels = {
   onboardingGet: 'onboarding:get',
   onboardingComplete: 'onboarding:complete',
   onboardingReset: 'onboarding:reset',
-  systemCheckPython: 'system:checkPython'
+  systemCheckPython: 'system:checkPython',
+  feedbackCollectBundle: 'feedback:collectBundle'
 } as const

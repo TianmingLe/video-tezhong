@@ -57,6 +57,8 @@ export type LogsCleanupPreviewResult = { toDelete: number; total: number }
 
 export type LogsCleanupResult = { success: true; deleted: number } | { success: false; error: string }
 
+export type FeedbackCollectBundleResult = { markdown: string }
+
 export type DesktopApi = {
   version: string
   onboarding: {
@@ -104,5 +106,8 @@ export type DesktopApi = {
   }
   perf: {
     getStartup: () => Promise<StartupMetricsSnapshot>
+  }
+  feedback: {
+    collectBundle: (userInput?: string) => Promise<FeedbackCollectBundleResult>
   }
 }

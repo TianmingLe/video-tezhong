@@ -30,5 +30,6 @@ describe('ipcChannels', () => {
     expect(ipcChannels.onboardingComplete).toBe('onboarding:complete')
     expect(ipcChannels.onboardingReset).toBe('onboarding:reset')
     expect(ipcChannels.systemCheckPython).toBe('system:checkPython')
+    expect(ipcChannels.feedbackCollectBundle).toBe('feedback:collectBundle')
   })
 })
