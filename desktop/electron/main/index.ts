@@ -18,6 +18,7 @@ import electronUpdater from 'electron-updater'
 import { UpdateService } from './update/UpdateService'
 import { createOnboardingStore } from './onboarding/onboardingStore'
 import { checkPython } from './system/checkPython'
+import { uninstallSelf } from './system/windowsUninstall'
 import { StartupMetrics } from './perf/startupMetrics'
 import { createFeedbackCollector } from './feedback'
 
@@ -335,6 +336,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle(ipcChannels.appGetDbState, async () => {
     return { isReadOnly: dbState.isReadOnly }
+  })
+
+  ipcMain.handle(ipcChannels.appUninstall, async () => {
+    return await uninstallSelf()
   })
 
   ipcMain.handle(ipcChannels.updateCheck, async () => {
