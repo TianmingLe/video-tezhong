@@ -39,6 +39,8 @@ export type TrayConfig = {
 }
 
 export type { TaskRecord, ConfigRecord, TaskStatus } from '../main/db/types'
+export type { OnboardingState } from '../main/onboarding/onboardingStore'
+export type { CheckPythonResult } from '../main/system/checkPython'
 export type { UpdateState, UpdateEvent, UpdateInstallResult } from '../main/update/UpdateService'
 
 export type JobQueueStatus = {
