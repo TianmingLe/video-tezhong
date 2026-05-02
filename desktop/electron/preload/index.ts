@@ -25,6 +25,11 @@ const api: DesktopApi = {
       ipcRenderer.on(ipcChannels.jobStatus, handler as never)
       return () => ipcRenderer.removeListener(ipcChannels.jobStatus, handler as never)
     },
+    onQueueUpdate: (callback) => {
+      const handler = (_evt: unknown, payload: unknown) => callback(payload as never)
+      ipcRenderer.on(ipcChannels.jobQueueUpdate, handler as never)
+      return () => ipcRenderer.removeListener(ipcChannels.jobQueueUpdate, handler as never)
+    },
     exportLog: async (runId) => {
       return await ipcRenderer.invoke(ipcChannels.jobExportLog, runId)
     },
@@ -33,6 +38,9 @@ const api: DesktopApi = {
     },
     history: async () => {
       return await ipcRenderer.invoke(ipcChannels.jobHistory)
+    },
+    getArchivedLog: async (runId, offset, chunkSize) => {
+      return await ipcRenderer.invoke(ipcChannels.jobGetArchivedLog, { runId, offset, chunkSize })
     }
   },
   kb: {

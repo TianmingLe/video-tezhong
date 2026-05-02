@@ -4,7 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ipcChannels } from '@shared/ipc'
 import { PythonProcessManager } from './process/PythonProcessManager'
-import { createLogArchive } from './logs'
+import { MAX_ARCHIVED_LOG_CHUNK_SIZE, createLogArchive, readArchivedLog } from './logs'
 import { TrayController } from './tray/TrayController'
 import { WindowController } from './window/WindowController'
 import { runNotifyFlow } from './notify/notifyFlow'
@@ -194,6 +194,22 @@ app.whenReady().then(() => {
 
     const fallbackContent = processManager.getLogs(runId).join('\n') + '\n'
     return logArchive.exportLog(runId, filePath, { fallbackContent })
+  })
+
+  ipcMain.handle(ipcChannels.jobGetArchivedLog, async (_evt, input: unknown) => {
+    const o = (input && typeof input === 'object' ? (input as Record<string, unknown>) : null) ?? {}
+    const runId = String(o.runId ?? '').trim()
+    if (!runId) return { success: false, error: 'runId is required' }
+    if (runId.includes('..') || runId.includes('/') || runId.includes('\\')) return { success: false, error: 'invalid runId' }
+
+    const offsetRaw = Number(o.offset ?? 0)
+    const chunkSizeRaw = Number(o.chunkSize ?? MAX_ARCHIVED_LOG_CHUNK_SIZE)
+    const offset = Number.isFinite(offsetRaw) ? offsetRaw : 0
+    const chunkSize = Number.isFinite(chunkSizeRaw)
+      ? Math.min(Math.max(1, Math.floor(chunkSizeRaw)), MAX_ARCHIVED_LOG_CHUNK_SIZE)
+      : MAX_ARCHIVED_LOG_CHUNK_SIZE
+
+    return readArchivedLog({ userDataPath, runId, offset, chunkSize })
   })
 
   ipcMain.handle(ipcChannels.jobQueueStatus, async () => {

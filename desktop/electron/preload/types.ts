@@ -38,6 +38,10 @@ export type JobQueueStatus = {
   pending: number
 }
 
+export type JobGetArchivedLogResult =
+  | { success: true; offset: number; nextOffset: number; eof: boolean; text: string }
+  | { success: false; error: string }
+
 export type DesktopApi = {
   version: string
   job: {
@@ -45,9 +49,11 @@ export type DesktopApi = {
     cancel: (runId: string) => Promise<{ success: boolean }>
     onLog: (runId: string, callback: (line: string) => void) => () => void
     onStatus: (runId: string, callback: (ev: JobStatusEvent) => void) => () => void
+    onQueueUpdate: (callback: (ev: JobQueueStatus) => void) => () => void
     exportLog: (runId: string) => Promise<ExportLogResult>
     queueStatus: () => Promise<JobQueueStatus>
     history: () => Promise<TaskRecord[]>
+    getArchivedLog: (runId: string, offset: number, chunkSize: number) => Promise<JobGetArchivedLogResult>
   }
   kb: {
     list: () => Promise<ConfigRecord[]>
