@@ -9,6 +9,8 @@ export const ipcChannels = {
   jobQueueUpdate: 'job:queueUpdate',
   jobHistory: 'job:history',
   jobGetArchivedLog: 'job:getArchivedLog',
+  logsCleanupPreview: 'logs:cleanupPreview',
+  logsCleanup: 'logs:cleanup',
   kbList: 'kb:list',
   kbSave: 'kb:save',
   kbSetDefault: 'kb:setDefault',

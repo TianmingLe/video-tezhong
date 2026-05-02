@@ -13,6 +13,8 @@ describe('ipcChannels', () => {
     expect(ipcChannels.jobQueueUpdate).toBe('job:queueUpdate')
     expect(ipcChannels.jobHistory).toBe('job:history')
     expect(ipcChannels.jobGetArchivedLog).toBe('job:getArchivedLog')
+    expect(ipcChannels.logsCleanupPreview).toBe('logs:cleanupPreview')
+    expect(ipcChannels.logsCleanup).toBe('logs:cleanup')
     expect(ipcChannels.kbList).toBe('kb:list')
     expect(ipcChannels.kbSave).toBe('kb:save')
     expect(ipcChannels.kbSetDefault).toBe('kb:setDefault')

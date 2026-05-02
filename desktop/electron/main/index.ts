@@ -4,7 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ipcChannels } from '@shared/ipc'
 import { PythonProcessManager } from './process/PythonProcessManager'
-import { MAX_ARCHIVED_LOG_CHUNK_SIZE, createLogArchive, readArchivedLog } from './logs'
+import { MAX_ARCHIVED_LOG_CHUNK_SIZE, createLogArchive, createLogCleanup, readArchivedLog } from './logs'
 import { TrayController } from './tray/TrayController'
 import { WindowController } from './window/WindowController'
 import { runNotifyFlow } from './notify/notifyFlow'
@@ -77,6 +77,7 @@ app.whenReady().then(() => {
 
   const logArchive = createLogArchive({ userDataPath })
   logArchive.ensureDir()
+  const logCleanup = createLogCleanup({ userDataPath, fs, path })
 
   const db = getDb()
   const tasksRepo = createTasksRepo(db)
@@ -245,6 +246,20 @@ app.whenReady().then(() => {
   ipcMain.handle(ipcChannels.jobQueueStatus, async () => {
     const snap = jobRuntime.queue.getSnapshot()
     return { running: snap.running.map((x) => x.runId), pending: snap.queued.length }
+  })
+
+  ipcMain.handle(ipcChannels.logsCleanupPreview, async (_evt, input: unknown) => {
+    const o = (input && typeof input === 'object' ? (input as Record<string, unknown>) : null) ?? {}
+    const keepRaw = Number(o.keep)
+    const keep = Number.isFinite(keepRaw) ? keepRaw : undefined
+    return await logCleanup.preview({ keep })
+  })
+
+  ipcMain.handle(ipcChannels.logsCleanup, async (_evt, input: unknown) => {
+    const o = (input && typeof input === 'object' ? (input as Record<string, unknown>) : null) ?? {}
+    const keepRaw = Number(o.keep)
+    const keep = Number.isFinite(keepRaw) ? keepRaw : undefined
+    return await logCleanup.cleanup({ keep })
   })
 
   ipcMain.handle(ipcChannels.jobHistory, async () => {

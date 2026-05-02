@@ -65,6 +65,14 @@ const api: DesktopApi = {
       return await ipcRenderer.invoke(ipcChannels.kbSetDefault, id)
     }
   },
+  logs: {
+    cleanupPreview: async (args) => {
+      return await ipcRenderer.invoke(ipcChannels.logsCleanupPreview, args ?? {})
+    },
+    cleanup: async (args) => {
+      return await ipcRenderer.invoke(ipcChannels.logsCleanup, args ?? {})
+    }
+  },
   tray: {
     getConfig: async () => {
       return await ipcRenderer.invoke(ipcChannels.trayGetConfig)

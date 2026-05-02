@@ -53,6 +53,10 @@ export type JobGetArchivedLogResult =
   | { success: true; offset: number; nextOffset: number; eof: boolean; text: string }
   | { success: false; error: string }
 
+export type LogsCleanupPreviewResult = { toDelete: number; total: number }
+
+export type LogsCleanupResult = { success: true; deleted: number } | { success: false; error: string }
+
 export type DesktopApi = {
   version: string
   onboarding: {
@@ -75,6 +79,10 @@ export type DesktopApi = {
     list: () => Promise<ConfigRecord[]>
     save: (input: Omit<ConfigRecord, 'id'>) => Promise<number>
     setDefault: (id: number) => Promise<{ success: true }>
+  }
+  logs: {
+    cleanupPreview: (args?: { keep?: number }) => Promise<LogsCleanupPreviewResult>
+    cleanup: (args?: { keep?: number }) => Promise<LogsCleanupResult>
   }
   tray: {
     getConfig: () => Promise<TrayConfig>

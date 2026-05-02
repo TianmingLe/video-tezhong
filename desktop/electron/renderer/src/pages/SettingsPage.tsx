@@ -137,6 +137,35 @@ export function SettingsPage() {
     }
   }
 
+  const cleanupOldLogs = async () => {
+    const scanningToastId = toastStore.show({ title: '日志', message: '正在扫描日志…' })
+    try {
+      const preview = await window.api.logs.cleanupPreview({ keep: 50 })
+      toastStore.dismiss(scanningToastId)
+
+      if (!preview.toDelete) {
+        toastStore.show({ title: '日志', message: '没有可清理的旧日志' })
+        return
+      }
+
+      const ok = window.confirm(`将删除 ${preview.toDelete} 个 .log 文件，不可恢复`)
+      if (!ok) return
+
+      const cleaningToastId = toastStore.show({ title: '日志', message: '正在清理旧日志…' })
+      const res = await window.api.logs.cleanup({ keep: 50 })
+      toastStore.dismiss(cleaningToastId)
+
+      if (res.success) {
+        toastStore.show({ title: '日志', message: `已删除 ${res.deleted} 个 .log 文件` })
+        return
+      }
+      toastStore.show({ title: '日志', message: `清理失败：${res.error}` })
+    } catch (e) {
+      toastStore.dismiss(scanningToastId)
+      toastStore.show({ title: '日志', message: `清理失败：${String((e as Error)?.message || e)}` })
+    }
+  }
+
   const loadStartupPerf = async () => {
     setStartupPerfLoading(true)
     try {
@@ -178,6 +207,17 @@ export function SettingsPage() {
           </div>
           <button type="button" className="btn" onClick={restartOnboarding}>
             重新开始引导
+          </button>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 16, maxWidth: 520 }}>
+        <div className="row" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="label" style={{ marginBottom: 0 }}>
+            日志
+          </div>
+          <button type="button" className="btn" onClick={cleanupOldLogs}>
+            清理旧日志
           </button>
         </div>
       </div>
