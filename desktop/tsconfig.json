@@ -18,6 +18,5 @@
       "@renderer/*": ["electron/renderer/src/*"]
     }
   },
-  "include": ["electron/**/*", "electron.vite.config.ts", "vitest.config.ts"]
+  "include": ["electron/**/*", "electron.vite.config.ts", "vitest.config.ts", "playwright.config.ts", "tests/e2e/**/*.ts"]
 }
-

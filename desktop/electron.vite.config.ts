@@ -6,7 +6,10 @@ export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
     build: {
-      outDir: 'dist/main'
+      outDir: 'dist/main',
+      rollupOptions: {
+        input: path.join(__dirname, 'electron/main/index.ts')
+      }
     },
     resolve: {
       alias: {
@@ -17,7 +20,10 @@ export default defineConfig({
   preload: {
     plugins: [externalizeDepsPlugin()],
     build: {
-      outDir: 'dist/preload'
+      outDir: 'dist/preload',
+      rollupOptions: {
+        input: path.join(__dirname, 'electron/preload/index.ts')
+      }
     },
     resolve: {
       alias: {
@@ -30,7 +36,10 @@ export default defineConfig({
     plugins: [react()],
     build: {
       outDir: 'dist/renderer',
-      emptyOutDir: true
+      emptyOutDir: true,
+      rollupOptions: {
+        input: path.join(__dirname, 'electron/renderer/index.html')
+      }
     },
     resolve: {
       alias: {
@@ -40,4 +49,3 @@ export default defineConfig({
     }
   }
 })
-
