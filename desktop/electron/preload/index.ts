@@ -94,6 +94,9 @@ const api: DesktopApi = {
     },
     getDbState: async () => {
       return await ipcRenderer.invoke(ipcChannels.appGetDbState)
+    },
+    uninstall: async () => {
+      return await ipcRenderer.invoke(ipcChannels.appUninstall)
     }
   },
   update: {

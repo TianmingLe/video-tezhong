@@ -29,6 +29,8 @@ export type AppNotifyEvent = { level: 'info' | 'warning' | 'error'; message: str
 
 export type DbState = { isReadOnly: boolean }
 
+export type AppUninstallResult = { success: true } | { success: false; error: string }
+
 export type TrayLeftClickMode = 'menu' | 'toggle' | 'none'
 
 export type TrayRightClickMode = 'menu' | 'none'
@@ -94,6 +96,7 @@ export type DesktopApi = {
     onNavigate: (callback: (ev: AppNavigateEvent) => void) => () => void
     onNotify: (callback: (ev: AppNotifyEvent) => void) => () => void
     getDbState: () => Promise<DbState>
+    uninstall: () => Promise<AppUninstallResult>
   }
   update: {
     check: () => Promise<UpdateState>

@@ -18,6 +18,7 @@ export const ipcChannels = {
   trayUpdateConfig: 'tray:updateConfig',
   appNotify: 'app:notify',
   appGetDbState: 'app:getDbState',
+  appUninstall: 'app:uninstall',
   updateCheck: 'update:check',
   updateInstall: 'update:install',
   updateState: 'update:state',
