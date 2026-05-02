@@ -1,5 +1,7 @@
 import type { ConfigRecord, TaskRecord, TaskStatus } from '../main/db/types'
 import type { UpdateEvent, UpdateInstallResult, UpdateState } from '../main/update/UpdateService'
+import type { OnboardingState } from '../main/onboarding/onboardingStore'
+import type { CheckPythonResult } from '../main/system/checkPython'
 
 export type JobConfig = {
   runId: string
@@ -50,6 +52,11 @@ export type JobGetArchivedLogResult =
 
 export type DesktopApi = {
   version: string
+  onboarding: {
+    getState: () => Promise<OnboardingState>
+    complete: (input?: { skipped?: boolean }) => Promise<OnboardingState>
+    reset: () => Promise<OnboardingState>
+  }
   job: {
     start: (config: JobConfig) => Promise<JobStartResult>
     cancel: (runId: string) => Promise<{ success: boolean }>
@@ -80,5 +87,8 @@ export type DesktopApi = {
     install: () => Promise<UpdateInstallResult>
     getState: () => Promise<UpdateState>
     onEvent: (callback: (ev: UpdateEvent) => void) => () => void
+  }
+  system: {
+    checkPython: () => Promise<CheckPythonResult>
   }
 }

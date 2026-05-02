@@ -18,5 +18,9 @@ export const ipcChannels = {
   updateCheck: 'update:check',
   updateInstall: 'update:install',
   updateState: 'update:state',
-  updateEvent: 'update:event'
+  updateEvent: 'update:event',
+  onboardingGet: 'onboarding:get',
+  onboardingComplete: 'onboarding:complete',
+  onboardingReset: 'onboarding:reset',
+  systemCheckPython: 'system:checkPython'
 } as const

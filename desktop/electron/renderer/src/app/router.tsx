@@ -6,8 +6,10 @@ import { ReportsPage } from '../pages/ReportsPage'
 import { ReportPage } from '../pages/ReportPage'
 import { KnowledgeBasePage } from '../pages/KnowledgeBasePage'
 import { SettingsPage } from '../pages/SettingsPage'
+import { OnboardingPage } from '../pages/OnboardingPage'
 
 const router = createBrowserRouter([
+  { path: '/onboarding', element: <OnboardingPage /> },
   {
     path: '/',
     element: <AppShell />,
@@ -26,4 +28,3 @@ const router = createBrowserRouter([
 export function AppRouter() {
   return <RouterProvider router={router} />
 }
-

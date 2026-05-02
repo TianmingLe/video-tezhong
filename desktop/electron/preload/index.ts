@@ -4,6 +4,17 @@ import { ipcChannels } from '@shared/ipc'
 
 const api: DesktopApi = {
   version: '0.0.1',
+  onboarding: {
+    getState: async () => {
+      return await ipcRenderer.invoke(ipcChannels.onboardingGet)
+    },
+    complete: async (input) => {
+      return await ipcRenderer.invoke(ipcChannels.onboardingComplete, input ?? {})
+    },
+    reset: async () => {
+      return await ipcRenderer.invoke(ipcChannels.onboardingReset)
+    }
+  },
   job: {
     start: async (config) => {
       return await ipcRenderer.invoke(ipcChannels.jobStart, config)
@@ -91,6 +102,11 @@ const api: DesktopApi = {
       const handler = (_evt: unknown, payload: unknown) => callback(payload as never)
       ipcRenderer.on(ipcChannels.updateEvent, handler as never)
       return () => ipcRenderer.removeListener(ipcChannels.updateEvent, handler as never)
+    }
+  },
+  system: {
+    checkPython: async () => {
+      return await ipcRenderer.invoke(ipcChannels.systemCheckPython)
     }
   }
 }

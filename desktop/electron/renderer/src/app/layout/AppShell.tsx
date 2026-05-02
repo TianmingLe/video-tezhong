@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom'
+import { Outlet, useNavigate } from 'react-router-dom'
 import { SidebarNav } from './SidebarNav'
 import './shell.css'
 import { useAppNavigate } from '../useAppNavigate'
@@ -7,6 +7,7 @@ import { QueueStatusProvider, useQueueStatus } from '../../contexts/QueueStatusC
 import { DbStateProvider, useDbState } from '../../contexts/DbStateContext'
 import { ToastHost } from '../../components/toast/ToastHost'
 import { UpdateToastHost } from '../../components/toast/UpdateToastHost'
+import { createOnboardingGuardController } from '../../features/onboarding/onboardingGuard'
 
 export function AppShell() {
   useAppNavigate()
@@ -20,8 +21,17 @@ export function AppShell() {
 }
 
 function AppShellBody() {
+  const navigate = useNavigate()
   const { setStatus, setLoading } = useQueueStatus()
   const { setIsReadOnly, setLoading: setDbLoading } = useDbState()
+
+  useEffect(() => {
+    const controller = createOnboardingGuardController({
+      getState: window.api.onboarding.getState,
+      navigate: (to, opts) => navigate(to, opts)
+    })
+    controller.run()
+  }, [navigate])
 
   useEffect(() => {
     let cancelled = false

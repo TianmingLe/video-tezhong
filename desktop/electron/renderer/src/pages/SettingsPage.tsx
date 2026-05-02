@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { ConfigRecord, TrayConfig, TrayLeftClickMode } from '../../../preload/types'
 import { RetryButton } from '../components/RetryButton'
 import { useDbState } from '../contexts/DbStateContext'
 import { toastStore } from '../components/toast/toastStore'
 
 export function SettingsPage() {
+  const navigate = useNavigate()
   const { isReadOnly } = useDbState()
   const [trayConfig, setTrayConfig] = useState<TrayConfig | null>(null)
   const [kbConfigs, setKbConfigs] = useState<ConfigRecord[]>([])
@@ -123,6 +125,15 @@ export function SettingsPage() {
     }
   }
 
+  const restartOnboarding = async () => {
+    try {
+      await window.api.onboarding.reset()
+      navigate('/onboarding', { replace: true })
+    } catch (e) {
+      toastStore.show({ title: '引导', message: `重置失败：${String((e as Error)?.message || e)}` })
+    }
+  }
+
   return (
     <div className="page">
       <h1 className="page-title">设置</h1>
@@ -135,6 +146,17 @@ export function SettingsPage() {
           </div>
           <button type="button" className="btn" onClick={checkUpdate}>
             检查更新
+          </button>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 16, maxWidth: 520 }}>
+        <div className="row" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="label" style={{ marginBottom: 0 }}>
+            引导
+          </div>
+          <button type="button" className="btn" onClick={restartOnboarding}>
+            重新开始引导
           </button>
         </div>
       </div>

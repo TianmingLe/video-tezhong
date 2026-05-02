@@ -16,6 +16,8 @@ import treeKill from 'tree-kill'
 import { createJobRuntime } from './job/jobRuntime'
 import { autoUpdater } from 'electron-updater'
 import { UpdateService } from './update/UpdateService'
+import { createOnboardingStore } from './onboarding/onboardingStore'
+import { checkPython } from './system/checkPython'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -72,6 +74,7 @@ app.whenReady().then(() => {
   const tasksRepo = createTasksRepo(db)
   const configsRepo = createConfigsRepo(db)
   const updateService = new UpdateService(autoUpdater)
+  const onboardingStore = createOnboardingStore({ userDataPath, fs })
 
   updateService.onEvent((ev) => {
     windowController.getWindow()?.webContents.send(ipcChannels.updateEvent, ev)
@@ -265,6 +268,24 @@ app.whenReady().then(() => {
 
   ipcMain.handle(ipcChannels.trayUpdateConfig, async (_evt, partial: Partial<TrayConfig> | null) => {
     return trayController.updateTrayConfig(partial ?? {})
+  })
+
+  ipcMain.handle(ipcChannels.onboardingGet, async () => {
+    return onboardingStore.getState()
+  })
+
+  ipcMain.handle(ipcChannels.onboardingComplete, async (_evt, input: unknown) => {
+    const o = (input && typeof input === 'object' ? (input as Record<string, unknown>) : null) ?? {}
+    const skipped = Boolean(o.skipped)
+    return onboardingStore.complete({ skipped })
+  })
+
+  ipcMain.handle(ipcChannels.onboardingReset, async () => {
+    return onboardingStore.reset()
+  })
+
+  ipcMain.handle(ipcChannels.systemCheckPython, async () => {
+    return await checkPython()
   })
 
   ipcMain.handle(ipcChannels.appGetDbState, async () => {
