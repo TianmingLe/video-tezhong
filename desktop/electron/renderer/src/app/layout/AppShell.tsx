@@ -4,18 +4,22 @@ import './shell.css'
 import { useAppNavigate } from '../useAppNavigate'
 import { useEffect } from 'react'
 import { QueueStatusProvider, useQueueStatus } from '../../contexts/QueueStatusContext'
+import { DbStateProvider, useDbState } from '../../contexts/DbStateContext'
 
 export function AppShell() {
   useAppNavigate()
   return (
     <QueueStatusProvider>
-      <AppShellBody />
+      <DbStateProvider>
+        <AppShellBody />
+      </DbStateProvider>
     </QueueStatusProvider>
   )
 }
 
 function AppShellBody() {
   const { setStatus, setLoading } = useQueueStatus()
+  const { setIsReadOnly, setLoading: setDbLoading } = useDbState()
 
   useEffect(() => {
     let cancelled = false
@@ -41,6 +45,24 @@ function AppShellBody() {
       off()
     }
   }, [setLoading, setStatus])
+
+  useEffect(() => {
+    let cancelled = false
+    setDbLoading(true)
+    window.api.app
+      .getDbState()
+      .then((s) => {
+        if (cancelled) return
+        setIsReadOnly(!!s?.isReadOnly)
+      })
+      .finally(() => {
+        if (cancelled) return
+        setDbLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [setDbLoading, setIsReadOnly])
 
   return (
     <div className="shell">

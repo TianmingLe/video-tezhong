@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import type { JobStatusEvent } from '../../../preload/types'
+import { RetryButton } from '../components/RetryButton'
 import { Skeleton } from '../components/Skeleton'
 import { LogViewer } from '../features/task/LogViewer'
 import { parseLogLine } from '../features/task/logUtils'
@@ -227,9 +228,7 @@ export function ReportPage() {
         ) : initError ? (
           <div className="row" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 10 }}>
             <div className="muted">读取日志失败：{initError}</div>
-            <button type="button" className="btn" onClick={() => void loadInitial()}>
-              重试
-            </button>
+            <RetryButton label="重试" onRetry={loadInitial} />
           </div>
         ) : noLog ? (
           <div className="muted" style={{ marginTop: 10 }}>

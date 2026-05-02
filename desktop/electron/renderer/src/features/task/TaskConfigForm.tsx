@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { TaskConfig, taskConfigSchema, scriptEnum } from './configSchema'
+import { useDbState } from '../../contexts/DbStateContext'
 
 export type TaskConfigFormProps = {
   defaultValues?: Partial<TaskConfig>
@@ -11,6 +12,7 @@ export type TaskConfigFormProps = {
 const scriptOptions = scriptEnum.options
 
 export function TaskConfigForm(props: TaskConfigFormProps) {
+  const { isReadOnly } = useDbState()
   const defaults = useMemo<TaskConfig>(() => {
     return taskConfigSchema.parse({
       runId: props.defaultValues?.runId ?? '',
@@ -54,6 +56,7 @@ export function TaskConfigForm(props: TaskConfigFormProps) {
   }
 
   const saveAsTemplate = async () => {
+    if (isReadOnly) return
     const name = window.prompt('模板名称')
     const trimmed = String(name || '').trim()
     if (!trimmed) return
@@ -148,7 +151,13 @@ export function TaskConfigForm(props: TaskConfigFormProps) {
           <button type="submit" className="btn">
             开始任务
           </button>
-          <button type="button" className="btn" onClick={saveAsTemplate}>
+          <button
+            type="button"
+            className="btn"
+            disabled={isReadOnly}
+            title={isReadOnly ? '数据库只读模式，无法写入模板' : undefined}
+            onClick={saveAsTemplate}
+          >
             保存为模板
           </button>
         </div>
