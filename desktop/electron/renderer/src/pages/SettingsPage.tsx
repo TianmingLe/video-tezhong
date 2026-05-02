@@ -4,6 +4,7 @@ import type { ConfigRecord, TrayConfig, TrayLeftClickMode } from '../../../prelo
 import { RetryButton } from '../components/RetryButton'
 import { useDbState } from '../contexts/DbStateContext'
 import { toastStore } from '../components/toast/toastStore'
+import { copyText } from '../features/feedback/copyText'
 
 export function SettingsPage() {
   const navigate = useNavigate()
@@ -15,6 +16,9 @@ export function SettingsPage() {
   const [startupPerf, setStartupPerf] = useState<Awaited<ReturnType<typeof window.api.perf.getStartup>> | null>(null)
   const [startupPerfLoading, setStartupPerfLoading] = useState(false)
   const [startupPerfError, setStartupPerfError] = useState<string | null>(null)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
+  const [feedbackDesc, setFeedbackDesc] = useState('')
+  const [feedbackGenerating, setFeedbackGenerating] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -184,6 +188,27 @@ export function SettingsPage() {
     return n == null || !Number.isFinite(n) ? '-' : `${Math.round(n)}ms`
   }
 
+  const generateFeedback = async () => {
+    if (feedbackGenerating) return
+    setFeedbackGenerating(true)
+    const loadingToastId = toastStore.show({ title: '反馈', message: '正在生成…' })
+    try {
+      const { markdown } = await window.api.feedback.collectBundle(feedbackDesc)
+      const res = await copyText(markdown)
+      toastStore.dismiss(loadingToastId)
+      if (res.success) {
+        toastStore.show({ title: '反馈', message: '已复制到剪贴板，请前往 GitHub 粘贴' })
+        return
+      }
+      toastStore.show({ title: '反馈', message: `复制失败：${res.error}` })
+    } catch (e) {
+      toastStore.dismiss(loadingToastId)
+      toastStore.show({ title: '反馈', message: `生成失败：${String((e as Error)?.message || e)}` })
+    } finally {
+      setFeedbackGenerating(false)
+    }
+  }
+
   return (
     <div className="page">
       <h1 className="page-title">设置</h1>
@@ -336,6 +361,37 @@ export function SettingsPage() {
           </div>
         )}
       </div>
+
+      <div className="card" style={{ marginTop: 16, maxWidth: 520 }}>
+        <div className="row" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="label" style={{ marginBottom: 0 }}>
+            反馈
+          </div>
+          <button type="button" className="btn" onClick={() => setFeedbackOpen((v) => !v)}>
+            反馈问题
+          </button>
+        </div>
+      </div>
+
+      {feedbackOpen ? (
+        <div className="card" style={{ marginTop: 12, maxWidth: 520 }}>
+          <div className="row">
+            <div className="label">问题描述</div>
+            <textarea
+              className="input"
+              style={{ minHeight: 120, resize: 'vertical' }}
+              value={feedbackDesc}
+              placeholder="请描述你遇到的问题（可选）"
+              onChange={(e) => setFeedbackDesc(e.target.value)}
+            />
+          </div>
+          <div className="row" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <button type="button" className="btn" onClick={generateFeedback} disabled={feedbackGenerating}>
+              生成并复制
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
