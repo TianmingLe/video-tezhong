@@ -2,8 +2,10 @@ export type JobState = 'queued' | 'running' | 'exited' | 'error' | 'cancelled'
 
 export type JobRequest = {
   runId: string
+  pythonBin?: string
   script: string
   args: string[]
+  cwd?: string
   env?: Record<string, string>
 }
 

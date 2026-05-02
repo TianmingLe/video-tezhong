@@ -16,8 +16,18 @@ function getSchemaSql(): string {
   return fs.readFileSync(schemaPath, 'utf-8')
 }
 
+function ensureColumn(db: SqliteDb, table: string, col: string, sqlType: string): void {
+  const rows = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>
+  if (rows.some((r) => r.name === col)) return
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${sqlType}`)
+}
+
 export function initDb(db: SqliteDb): void {
   db.exec(getSchemaSql())
+  ensureColumn(db, 'tasks', 'task_spec_json', 'TEXT')
+  ensureColumn(db, 'tasks', 'attempt', 'INTEGER')
+  ensureColumn(db, 'tasks', 'max_attempts', 'INTEGER')
+  ensureColumn(db, 'configs', 'task_spec_json', 'TEXT')
 }
 
 export function createDbForTest(filePath: string): SqliteDb {

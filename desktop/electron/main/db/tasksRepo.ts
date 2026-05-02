@@ -1,12 +1,24 @@
 import { runWithRetry, type SqliteDb } from './index'
 import type { TaskRecord, TaskStatus } from './types'
 
-export type TaskInsert = Omit<TaskRecord, 'id'>
+export type TaskInsert = {
+  run_id: string
+  script: string
+  scenario: string
+  status: TaskStatus
+  exit_code?: number | null
+  start_time?: number | null
+  end_time?: number | null
+  duration?: number | null
+  task_spec_json?: string | null
+  attempt?: number | null
+  max_attempts?: number | null
+}
 
 export type TaskStatusUpdate = {
   run_id: string
   status: TaskStatus
-} & Partial<Pick<TaskRecord, 'exit_code' | 'start_time' | 'end_time' | 'duration'>>
+} & Partial<Pick<TaskRecord, 'exit_code' | 'start_time' | 'end_time' | 'duration' | 'task_spec_json' | 'attempt' | 'max_attempts'>>
 
 export type TasksRepo = {
   insert: (input: TaskInsert) => TaskRecord
@@ -40,8 +52,8 @@ export function createTasksRepo(db: SqliteDb): TasksRepo {
 
     runWithRetry(() => {
       db.prepare(
-        `insert into tasks(run_id, script, scenario, status, exit_code, start_time, end_time, duration)
-         values(@run_id, @script, @scenario, @status, @exit_code, @start_time, @end_time, @duration)`
+        `insert into tasks(run_id, script, scenario, status, exit_code, start_time, end_time, duration, task_spec_json, attempt, max_attempts)
+         values(@run_id, @script, @scenario, @status, @exit_code, @start_time, @end_time, @duration, @task_spec_json, @attempt, @max_attempts)`
       ).run({
         run_id,
         script,
@@ -50,7 +62,10 @@ export function createTasksRepo(db: SqliteDb): TasksRepo {
         exit_code: input.exit_code ?? null,
         start_time: input.start_time ?? null,
         end_time: input.end_time ?? null,
-        duration: input.duration ?? null
+        duration: input.duration ?? null,
+        task_spec_json: input.task_spec_json ?? null,
+        attempt: input.attempt ?? null,
+        max_attempts: input.max_attempts ?? null
       })
     })
 
@@ -68,6 +83,9 @@ export function createTasksRepo(db: SqliteDb): TasksRepo {
     if (hasKey(input, 'start_time')) sets.push('start_time=@start_time')
     if (hasKey(input, 'end_time')) sets.push('end_time=@end_time')
     if (hasKey(input, 'duration')) sets.push('duration=@duration')
+    if (hasKey(input, 'task_spec_json')) sets.push('task_spec_json=@task_spec_json')
+    if (hasKey(input, 'attempt')) sets.push('attempt=@attempt')
+    if (hasKey(input, 'max_attempts')) sets.push('max_attempts=@max_attempts')
 
     const res = runWithRetry(() => db.prepare(`update tasks set ${sets.join(', ')} where run_id=@run_id`).run(input))
     if (res.changes <= 0) throw new Error('task not found')

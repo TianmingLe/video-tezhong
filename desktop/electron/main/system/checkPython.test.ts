@@ -22,6 +22,7 @@ describe('checkPython', () => {
     expect(calls).toEqual(['python --version', 'python3 --version'])
     expect(res.ok).toBe(true)
     expect(res.version).toBe('3.12.1')
+    if (res.ok) expect(res.bin).toBe('python3')
   })
 
   test('linux: tries python3 then python', async () => {
@@ -41,6 +42,7 @@ describe('checkPython', () => {
     expect(calls).toEqual(['python3 --version', 'python --version'])
     expect(res.ok).toBe(true)
     expect(res.version).toBe('3.11.9')
+    if (res.ok) expect(res.bin).toBe('python')
   })
 
   test('parses version from stderr', async () => {
@@ -48,7 +50,7 @@ describe('checkPython', () => {
       cb(null, '', 'Python 3.10.0')
     }
     const res = await checkPython({ platform: 'darwin', exec })
-    expect(res).toEqual({ ok: true, version: '3.10.0' })
+    expect(res).toEqual({ ok: true, version: '3.10.0', bin: 'python3' })
   })
 
   test('permission error returns user-friendly suggestion', async () => {

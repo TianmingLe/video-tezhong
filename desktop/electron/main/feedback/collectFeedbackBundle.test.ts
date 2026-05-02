@@ -47,7 +47,10 @@ describe('collectFeedbackBundle', () => {
       exit_code: 2,
       start_time: null,
       end_time: null,
-      duration: null
+      duration: null,
+      task_spec_json: null,
+      attempt: null,
+      max_attempts: null
     })
 
     const collector = createFeedbackCollector({

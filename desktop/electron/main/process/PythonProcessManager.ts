@@ -5,6 +5,7 @@ import treeKill from 'tree-kill'
 
 export type JobConfig = {
   runId: string
+  pythonBin?: string
   script: string
   args: string[]
   cwd?: string
@@ -117,7 +118,7 @@ export class PythonProcessManager {
     const args = [scriptPath, ...(cfg.args || [])]
     const env = { ...process.env, ...(cfg.env || {}) }
 
-    const child = spawn(this.pythonBin, args, { stdio: ['ignore', 'pipe', 'pipe'], cwd, env })
+    const child = spawn(cfg.pythonBin ?? this.pythonBin, args, { stdio: ['ignore', 'pipe', 'pipe'], cwd, env })
     const st: JobState = { child, stdoutBuf: '', stderrBuf: '', logs: [] }
     this.jobs.set(runId, st)
 

@@ -7,7 +7,10 @@ CREATE TABLE IF NOT EXISTS tasks (
   exit_code INTEGER,
   start_time INTEGER,
   end_time INTEGER,
-  duration INTEGER
+  duration INTEGER,
+  task_spec_json TEXT,
+  attempt INTEGER,
+  max_attempts INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS configs (
@@ -17,5 +20,6 @@ CREATE TABLE IF NOT EXISTS configs (
   scenario TEXT NOT NULL,
   gateway_ws TEXT,
   env TEXT NOT NULL,
-  is_default INTEGER NOT NULL DEFAULT 0
+  is_default INTEGER NOT NULL DEFAULT 0,
+  task_spec_json TEXT
 );

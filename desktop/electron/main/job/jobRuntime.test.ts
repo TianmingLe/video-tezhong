@@ -15,7 +15,17 @@ function createMockTasksRepo(): TasksRepo & {
   const rows = new Map<string, TaskRecord>()
 
   const insertMock = vi.fn((input: any) => {
-    const row: TaskRecord = { id: nextId++, ...input }
+    const row: TaskRecord = {
+      id: nextId++,
+      exit_code: null,
+      start_time: null,
+      end_time: null,
+      duration: null,
+      task_spec_json: null,
+      attempt: null,
+      max_attempts: null,
+      ...input
+    }
     rows.set(row.run_id, row)
     return row
   })
@@ -29,7 +39,10 @@ function createMockTasksRepo(): TasksRepo & {
       exit_code: Object.prototype.hasOwnProperty.call(input, 'exit_code') ? input.exit_code : cur.exit_code,
       start_time: Object.prototype.hasOwnProperty.call(input, 'start_time') ? input.start_time : cur.start_time,
       end_time: Object.prototype.hasOwnProperty.call(input, 'end_time') ? input.end_time : cur.end_time,
-      duration: Object.prototype.hasOwnProperty.call(input, 'duration') ? input.duration : cur.duration
+      duration: Object.prototype.hasOwnProperty.call(input, 'duration') ? input.duration : cur.duration,
+      task_spec_json: Object.prototype.hasOwnProperty.call(input, 'task_spec_json') ? input.task_spec_json : cur.task_spec_json,
+      attempt: Object.prototype.hasOwnProperty.call(input, 'attempt') ? input.attempt : cur.attempt,
+      max_attempts: Object.prototype.hasOwnProperty.call(input, 'max_attempts') ? input.max_attempts : cur.max_attempts
     }
     rows.set(input.run_id, next)
     return next

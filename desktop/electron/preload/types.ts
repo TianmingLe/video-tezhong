@@ -6,8 +6,10 @@ import type { StartupMetricsSnapshot } from '../main/perf/startupMetrics'
 
 export type JobConfig = {
   runId: string
+  pythonBin?: string
   script: string
   args: string[]
+  cwd?: string
   env?: Record<string, string>
 }
 
@@ -81,7 +83,7 @@ export type DesktopApi = {
   }
   kb: {
     list: () => Promise<ConfigRecord[]>
-    save: (input: Omit<ConfigRecord, 'id'>) => Promise<number>
+    save: (input: Omit<ConfigRecord, 'id' | 'task_spec_json'> & { task_spec_json?: string | null }) => Promise<number>
     setDefault: (id: number) => Promise<{ success: true }>
   }
   logs: {

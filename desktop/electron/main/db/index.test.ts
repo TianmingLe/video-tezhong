@@ -23,6 +23,14 @@ test('initDb creates tables and supports insert/select', () => {
   dbToClose = db
   initDb(db)
 
+  const taskCols = (db.prepare('PRAGMA table_info(tasks)').all() as Array<{ name: string }>).map((r) => r.name)
+  expect(taskCols).toContain('task_spec_json')
+  expect(taskCols).toContain('attempt')
+  expect(taskCols).toContain('max_attempts')
+
+  const cfgCols = (db.prepare('PRAGMA table_info(configs)').all() as Array<{ name: string }>).map((r) => r.name)
+  expect(cfgCols).toContain('task_spec_json')
+
   db.prepare('insert into tasks(run_id, script, scenario, status) values(?,?,?,?)').run(
     'r1',
     's.py',

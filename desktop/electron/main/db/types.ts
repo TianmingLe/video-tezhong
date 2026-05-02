@@ -10,6 +10,9 @@ export type TaskRecord = {
   start_time: number | null
   end_time: number | null
   duration: number | null
+  task_spec_json: string | null
+  attempt: number | null
+  max_attempts: number | null
 }
 
 export type ConfigRecord = {
@@ -20,5 +23,5 @@ export type ConfigRecord = {
   gateway_ws: string | null
   env: string
   is_default: 0 | 1
+  task_spec_json: string | null
 }
-

@@ -1,7 +1,15 @@
 import { runWithRetry, type SqliteDb } from './index'
 import type { ConfigRecord } from './types'
 
-export type ConfigInsert = Omit<ConfigRecord, 'id'>
+export type ConfigInsert = {
+  name: string
+  script: string
+  scenario: string
+  gateway_ws?: string | null
+  env: string
+  is_default?: 0 | 1
+  task_spec_json?: string | null
+}
 
 export type ConfigUpdate = { id: number } & Partial<Omit<ConfigRecord, 'id'>>
 
@@ -35,15 +43,16 @@ export function createConfigsRepo(db: SqliteDb): ConfigsRepo {
 
     const res = runWithRetry(() =>
       db.prepare(
-        `insert into configs(name, script, scenario, gateway_ws, env, is_default)
-         values(@name, @script, @scenario, @gateway_ws, @env, @is_default)`
+        `insert into configs(name, script, scenario, gateway_ws, env, is_default, task_spec_json)
+         values(@name, @script, @scenario, @gateway_ws, @env, @is_default, @task_spec_json)`
       ).run({
         name,
         script,
         scenario,
         gateway_ws: input.gateway_ws ?? null,
         env: String(input.env ?? ''),
-        is_default: input.is_default ?? 0
+        is_default: input.is_default ?? 0,
+        task_spec_json: input.task_spec_json ?? null
       })
     )
 
@@ -68,6 +77,7 @@ export function createConfigsRepo(db: SqliteDb): ConfigsRepo {
     if (hasKey(input, 'gateway_ws')) sets.push('gateway_ws=@gateway_ws')
     if (hasKey(input, 'env')) sets.push('env=@env')
     if (hasKey(input, 'is_default')) sets.push('is_default=@is_default')
+    if (hasKey(input, 'task_spec_json')) sets.push('task_spec_json=@task_spec_json')
 
     if (sets.length === 0) return cur
 

@@ -1,8 +1,22 @@
 import { exec as nodeExec } from 'node:child_process'
 
 export type CheckPythonResult =
-  | { ok: true; version: string }
+  | { ok: true; version: string; bin: string }
   | { ok: false; error: string; suggestion: string; version?: string }
+
+export function isPythonVersionSupported(version: string): boolean {
+  const m = String(version || '').trim().match(/^(\d+)\.(\d+)(?:\.(\d+))?/)
+  if (!m) return false
+  const major = Number(m[1])
+  const minor = Number(m[2])
+  const patch = Number(m[3] ?? 0)
+  if (Number.isNaN(major) || Number.isNaN(minor) || Number.isNaN(patch)) return false
+  if (major > 3) return true
+  if (major < 3) return false
+  if (minor > 11) return true
+  if (minor < 11) return false
+  return patch >= 0
+}
 
 function pickCandidates(platform: NodeJS.Platform): string[] {
   if (platform === 'win32') return ['python', 'python3']
@@ -47,8 +61,8 @@ export async function checkPython(args?: {
     const combined = `${r.stdout}\n${r.stderr}`.trim()
     const version = parsePythonVersion(combined)
 
-    if (!r.error && version) return { ok: true, version }
-    if (r.error && version) return { ok: true, version }
+    if (!r.error && version) return { ok: true, version, bin }
+    if (r.error && version) return { ok: true, version, bin }
 
     if (r.error) {
       lastError = { message: String(r.error?.message ?? r.error ?? 'unknown error'), code: String(r.error?.code ?? '') || undefined }
@@ -62,4 +76,3 @@ export async function checkPython(args?: {
   const suggestion = buildSuggestion({ platform, error, code: lastError?.code })
   return { ok: false, error, suggestion }
 }
-
