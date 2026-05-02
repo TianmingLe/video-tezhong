@@ -123,8 +123,8 @@ const api: DesktopApi = {
     }
   },
   feedback: {
-    collectBundle: async (userInput) => {
-      return await ipcRenderer.invoke(ipcChannels.feedbackCollectBundle, { userInput: userInput ?? '' })
+    collectBundle: async (args) => {
+      return await ipcRenderer.invoke(ipcChannels.feedbackCollectBundle, { userDescription: args?.userDescription ?? '' })
     }
   }
 }

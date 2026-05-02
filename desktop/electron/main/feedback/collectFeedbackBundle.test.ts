@@ -4,8 +4,10 @@ import os from 'node:os'
 import path from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { createFeedbackCollector } from './collectFeedbackBundle'
+import type { TaskRecord } from '../db/types'
+import type { TasksRepo } from '../db/tasksRepo'
 
-function createMockTasksRepo(row: any) {
+function createMockTasksRepo(row: TaskRecord | null): TasksRepo {
   return {
     getAll: () => (row ? [row] : []),
     getById: () => null,
@@ -15,7 +17,7 @@ function createMockTasksRepo(row: any) {
     updateStatus: () => {
       throw new Error('not implemented')
     }
-  } as any
+  }
 }
 
 describe('collectFeedbackBundle', () => {
@@ -60,7 +62,7 @@ describe('collectFeedbackBundle', () => {
       path
     })
 
-    const { markdown } = collector.collectBundle({ userInput: 'hello' })
+    const { markdown } = collector.collectBundle({ userDescription: 'hello' })
     expect(markdown).toContain('## User Input')
     expect(markdown).toContain('hello')
     expect(markdown).toContain('| platform | linux |')
@@ -111,4 +113,3 @@ describe('collectFeedbackBundle', () => {
     expect(markdown).toContain('解析失败：')
   })
 })
-

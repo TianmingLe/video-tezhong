@@ -90,7 +90,11 @@ app.whenReady().then(() => {
     tasksRepo,
     appVersion: app.getVersion(),
     fs,
-    path
+    path,
+    platform: process.platform,
+    arch: process.arch,
+    nodeVersion: process.versions.node,
+    electronVersion: process.versions.electron
   })
 
   updateService.onEvent((ev) => {
@@ -270,6 +274,12 @@ app.whenReady().then(() => {
     return await logCleanup.cleanup({ keep })
   })
 
+  ipcMain.handle(ipcChannels.feedbackCollectBundle, async (_evt, input: unknown) => {
+    const o = (input && typeof input === 'object' ? (input as Record<string, unknown>) : null) ?? {}
+    const userDescription = String(o.userDescription ?? '')
+    return feedbackCollector.collectBundle({ userDescription })
+  })
+
   ipcMain.handle(ipcChannels.jobHistory, async () => {
     return tasksRepo.getAll()
   })
@@ -321,12 +331,6 @@ app.whenReady().then(() => {
 
   ipcMain.handle(ipcChannels.systemCheckPython, async () => {
     return await checkPython()
-  })
-
-  ipcMain.handle(ipcChannels.feedbackCollectBundle, async (_evt, input: unknown) => {
-    const o = (input && typeof input === 'object' ? (input as Record<string, unknown>) : null) ?? {}
-    const userInput = typeof o.userInput === 'string' ? o.userInput : ''
-    return feedbackCollector.collectBundle({ userInput })
   })
 
   ipcMain.handle(ipcChannels.appGetDbState, async () => {

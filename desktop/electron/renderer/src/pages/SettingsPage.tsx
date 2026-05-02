@@ -193,7 +193,7 @@ export function SettingsPage() {
     setFeedbackGenerating(true)
     const loadingToastId = toastStore.show({ title: '反馈', message: '正在生成…' })
     try {
-      const { markdown } = await window.api.feedback.collectBundle(feedbackDesc)
+      const { markdown } = await window.api.feedback.collectBundle({ userDescription: feedbackDesc })
       const res = await copyText(markdown)
       toastStore.dismiss(loadingToastId)
       if (res.success) {

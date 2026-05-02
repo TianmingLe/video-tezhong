@@ -108,6 +108,6 @@ export type DesktopApi = {
     getStartup: () => Promise<StartupMetricsSnapshot>
   }
   feedback: {
-    collectBundle: (userInput?: string) => Promise<FeedbackCollectBundleResult>
+    collectBundle: (args: { userDescription: string }) => Promise<FeedbackCollectBundleResult>
   }
 }
