@@ -14,7 +14,7 @@ import { createTasksRepo } from './db/tasksRepo'
 import { createConfigsRepo } from './db/configsRepo'
 import treeKill from 'tree-kill'
 import { createJobRuntime } from './job/jobRuntime'
-import { autoUpdater } from 'electron-updater'
+import electronUpdater from 'electron-updater'
 import { UpdateService } from './update/UpdateService'
 import { createOnboardingStore } from './onboarding/onboardingStore'
 import { checkPython } from './system/checkPython'
@@ -83,7 +83,7 @@ app.whenReady().then(() => {
   const db = getDb()
   const tasksRepo = createTasksRepo(db)
   const configsRepo = createConfigsRepo(db)
-  const updateService = new UpdateService(autoUpdater)
+  const updateService = new UpdateService(electronUpdater.autoUpdater)
   const onboardingStore = createOnboardingStore({ userDataPath, fs })
   const feedbackCollector = createFeedbackCollector({
     userDataPath,

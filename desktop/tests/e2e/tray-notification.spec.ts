@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test'
-import { _electron as electron } from 'playwright'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { runNotifyFlow } from '../../electron/main/notify/notifyFlow'
+import { launchDesktopElectron } from './electronLaunch'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -53,14 +53,10 @@ test('通知流：点击通知会导航到报告页', () => {
 })
 
 test('托盘配置可读写（软断言）', async ({}, testInfo) => {
-  let app: Awaited<ReturnType<typeof electron.launch>> | null = null
+  let app: Awaited<ReturnType<typeof launchDesktopElectron>> | null = null
 
   try {
-    app = await electron.launch({
-      args: ['.'],
-      cwd: desktopRoot,
-      env: { ...process.env, ELECTRON_DISABLE_SECURITY_WARNINGS: 'true' }
-    })
+    app = await launchDesktopElectron({ desktopRoot })
 
     const page = await app.firstWindow()
     await page.waitForLoadState('domcontentloaded')
@@ -86,4 +82,3 @@ test('托盘配置可读写（软断言）', async ({}, testInfo) => {
     await app?.close()
   }
 })
-

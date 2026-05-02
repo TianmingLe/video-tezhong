@@ -1,10 +1,23 @@
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import path from 'node:path'
+import fs from 'node:fs'
+
+function copyMainAssets() {
+  return {
+    name: 'copy-main-assets',
+    closeBundle() {
+      const src = path.join(__dirname, 'electron/main/db/schema.sql')
+      const dst = path.join(__dirname, 'dist/main/schema.sql')
+      fs.mkdirSync(path.dirname(dst), { recursive: true })
+      fs.copyFileSync(src, dst)
+    }
+  }
+}
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin(), copyMainAssets()],
     build: {
       outDir: 'dist/main',
       rollupOptions: {

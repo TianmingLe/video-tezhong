@@ -11,7 +11,7 @@
     "pack": "npm run build && electron-builder --dir --config electron-builder.yml --publish never",
     "preview": "electron-vite preview",
     "test": "vitest run",
-    "test:e2e": "playwright test",
+    "test:e2e": "node scripts/run-playwright.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "validate:yaml": "node scripts/validate-yaml.mjs"
   },
