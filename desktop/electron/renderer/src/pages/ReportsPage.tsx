@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { TaskRecord, TaskStatus } from '../../../preload/types'
+import { Skeleton } from '../components/Skeleton'
 
 export function ReportsPage() {
   const navigate = useNavigate()
@@ -90,8 +91,11 @@ export function ReportsPage() {
         </div>
 
         {loading ? (
-          <div className="muted" style={{ marginTop: 10 }}>
-            加载中...
+          <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+            <Skeleton height={14} />
+            <Skeleton height={14} />
+            <Skeleton height={14} />
+            <Skeleton height={14} />
           </div>
         ) : filtered.length === 0 ? (
           <div className="muted" style={{ marginTop: 10 }}>

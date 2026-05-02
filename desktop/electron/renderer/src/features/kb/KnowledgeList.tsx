@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ConfigRecord } from '../../../../preload/types'
+import { Skeleton } from '../../components/Skeleton'
 
 export function KnowledgeList() {
   const navigate = useNavigate()
@@ -60,7 +61,11 @@ export function KnowledgeList() {
       </div>
       <div className="list">
         {loading ? (
-          <div className="muted">加载中...</div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            <Skeleton height={38} />
+            <Skeleton height={38} />
+            <Skeleton height={38} />
+          </div>
         ) : list.length === 0 ? (
           <div className="muted">暂无模板</div>
         ) : (
