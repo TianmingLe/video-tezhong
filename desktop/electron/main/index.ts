@@ -21,6 +21,9 @@ import { checkPython } from './system/checkPython'
 import { uninstallSelf } from './system/windowsUninstall'
 import { StartupMetrics } from './perf/startupMetrics'
 import { createFeedbackCollector } from './feedback'
+import { PythonEnvManager } from './python/PythonEnvManager'
+import { validateMediaCrawlerTaskSpec } from './mediacrawler/mediacrawlerTaskSpec'
+import { resolveMediaCrawlerRoot, resolveRunnerDir, writeTaskJson } from './mediacrawler/mediacrawlerRunner'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -209,8 +212,80 @@ app.whenReady().then(() => {
     })
   })
 
-  ipcMain.handle(ipcChannels.jobStart, async (_evt, cfg: { runId: string; script: string; args: string[]; env?: Record<string, string> } | null) => {
-    return await jobRuntime.enqueue(cfg as never)
+  ipcMain.handle(ipcChannels.jobStart, async (_evt, input: unknown) => {
+    const o = (input && typeof input === 'object' ? (input as Record<string, unknown>) : null) ?? {}
+    const runId = String(o.runId ?? '').trim()
+    const script = String(o.script ?? '').trim()
+    const args = Array.isArray(o.args) ? o.args.map((x) => String(x)) : []
+    const envObj = (o.env && typeof o.env === 'object' ? (o.env as Record<string, unknown>) : null) ?? {}
+    const env: Record<string, string> = {}
+    for (const [k, v] of Object.entries(envObj)) {
+      if (typeof v === 'string') env[String(k)] = v
+    }
+    const timeoutMsRaw = typeof o.timeoutMs === 'number' ? o.timeoutMs : undefined
+    const timeoutMs = typeof timeoutMsRaw === 'number' && Number.isFinite(timeoutMsRaw) ? Math.max(0, Math.floor(timeoutMsRaw)) : undefined
+    const maxAttemptsRaw = typeof o.maxAttempts === 'number' ? o.maxAttempts : undefined
+    const maxAttempts = typeof maxAttemptsRaw === 'number' && Number.isFinite(maxAttemptsRaw) ? Math.max(1, Math.floor(maxAttemptsRaw)) : undefined
+
+    if (!runId) return { success: false as const, error: 'runId is required' }
+    if (!script) return { success: false as const, error: 'script is required' }
+
+    if (script === 'mediacrawler') {
+      const v = validateMediaCrawlerTaskSpec(o.payload)
+      if (!v.ok) return { success: false as const, error: v.error }
+      if (v.value.runId !== runId) return { success: false as const, error: 'payload.runId mismatch' }
+
+      const py = await checkPython()
+      if (!py.ok) return { success: false as const, error: `${py.error}\n${py.suggestion}` }
+
+      const devRoot = path.resolve(__dirname, '../../../..')
+      const mediaCrawlerRoot = resolveMediaCrawlerRoot({
+        isPackaged: app.isPackaged,
+        resourcesPath: process.resourcesPath,
+        devRoot
+      })
+      const runnerDir = resolveRunnerDir({
+        isPackaged: app.isPackaged,
+        resourcesPath: process.resourcesPath,
+        devRoot
+      })
+
+      const envManager = new PythonEnvManager({
+        userDataPath,
+        mediaCrawlerRoot,
+        systemPythonBin: py.bin,
+        systemPythonVersion: py.version
+      })
+      const ensured = await envManager.ensureMediacrawlerEnv({ pythonIndexUrl: v.value.pythonIndexUrl })
+      if (!ensured.ok) return { success: false as const, error: `${ensured.error}\n${ensured.suggestion}` }
+
+      const { taskJsonPath } = writeTaskJson({ userDataPath, mediaCrawlerRoot, spec: v.value })
+      const taskSpecJson = JSON.stringify(v.value)
+      const req = {
+        runId,
+        script: 'run_mediacrawler.py',
+        scriptLabel: 'mediacrawler',
+        cwd: runnerDir,
+        pythonBin: ensured.pythonBin,
+        timeoutMs,
+        maxAttempts,
+        taskSpecJson,
+        env,
+        args: ['--scenario', 'mediacrawler', '--task-json', taskJsonPath]
+      }
+
+      return await jobRuntime.enqueue(req as never)
+    }
+
+    if (script.includes('..') || script.includes('\\') || script.startsWith('/') || script.startsWith('~')) {
+      return { success: false as const, error: 'invalid script' }
+    }
+    const allowedScripts = new Set(['scripts/mock_device.py', 'scripts/firmware_build.py', 'scripts/e2e_test.py'])
+    if (!allowedScripts.has(script)) {
+      return { success: false as const, error: 'script not allowed' }
+    }
+
+    return await jobRuntime.enqueue({ runId, script, args, env, timeoutMs, maxAttempts } as never)
   })
 
   ipcMain.handle(ipcChannels.perfGetStartup, async () => {
@@ -256,6 +331,59 @@ app.whenReady().then(() => {
     return readArchivedLog({ userDataPath, runId, offset, chunkSize })
   })
 
+  ipcMain.handle(ipcChannels.jobListRunArtifacts, async (_evt, input: unknown) => {
+    const o = (input && typeof input === 'object' ? (input as Record<string, unknown>) : null) ?? {}
+    const runId = String(o.runId ?? '').trim()
+    if (!runId) return { success: false as const, error: 'runId is required' }
+    if (runId.includes('..') || runId.includes('/') || runId.includes('\\')) return { success: false as const, error: 'invalid runId' }
+
+    const runDir = path.join(userDataPath, 'results', 'runs', runId)
+    try {
+      const names = fs.readdirSync(runDir)
+      const files: Array<{ name: string; size: number }> = []
+      for (const name of names) {
+        if (!name || name === '.' || name === '..') continue
+        if (path.basename(name) !== name) continue
+        const p = path.join(runDir, name)
+        const st = fs.statSync(p)
+        if (!st.isFile()) continue
+        files.push({ name, size: st.size })
+      }
+      files.sort((a, b) => a.name.localeCompare(b.name))
+      return { success: true as const, files }
+    } catch (e) {
+      return { success: false as const, error: String((e as any)?.message ?? e) }
+    }
+  })
+
+  ipcMain.handle(ipcChannels.jobReadRunFile, async (_evt, input: unknown) => {
+    const o = (input && typeof input === 'object' ? (input as Record<string, unknown>) : null) ?? {}
+    const runId = String(o.runId ?? '').trim()
+    const name = String(o.name ?? '').trim()
+    const maxBytesRaw = typeof o.maxBytes === 'number' ? o.maxBytes : 512 * 1024
+    const maxBytes = Number.isFinite(maxBytesRaw) ? Math.min(Math.max(1, Math.floor(maxBytesRaw)), 5 * 1024 * 1024) : 512 * 1024
+
+    if (!runId) return { success: false as const, error: 'runId is required' }
+    if (runId.includes('..') || runId.includes('/') || runId.includes('\\')) return { success: false as const, error: 'invalid runId' }
+    if (!name) return { success: false as const, error: 'name is required' }
+    if (path.basename(name) !== name) return { success: false as const, error: 'invalid name' }
+
+    const runDir = path.join(userDataPath, 'results', 'runs', runId)
+    const p = path.join(runDir, name)
+    if (!p.startsWith(runDir + path.sep)) return { success: false as const, error: 'invalid path' }
+
+    try {
+      const st = fs.statSync(p)
+      if (!st.isFile()) return { success: false as const, error: 'not a file' }
+      const size = Math.min(st.size, maxBytes)
+      const buf = fs.readFileSync(p)
+      const text = buf.subarray(0, size).toString('utf-8')
+      return { success: true as const, text }
+    } catch (e) {
+      return { success: false as const, error: String((e as any)?.message ?? e) }
+    }
+  })
+
   ipcMain.handle(ipcChannels.jobQueueStatus, async () => {
     const snap = jobRuntime.queue.getSnapshot()
     return { running: snap.running.map((x) => x.runId), pending: snap.queued.length }
@@ -297,8 +425,9 @@ app.whenReady().then(() => {
     const gateway_ws = o.gateway_ws === null ? null : typeof o.gateway_ws === 'string' ? o.gateway_ws.trim() || null : null
     const env = typeof o.env === 'string' ? o.env : ''
     const is_default = typeof o.is_default === 'number' ? (o.is_default === 1 ? 1 : 0) : 0
+    const task_spec_json = typeof o.task_spec_json === 'string' ? o.task_spec_json : null
 
-    const row = configsRepo.insert({ name, script, scenario, gateway_ws, env, is_default })
+    const row = configsRepo.insert({ name, script, scenario, gateway_ws, env, is_default, task_spec_json })
     if (is_default === 1) configsRepo.setDefault(row.id)
     return row.id
   })

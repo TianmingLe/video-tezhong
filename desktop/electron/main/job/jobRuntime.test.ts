@@ -17,10 +17,6 @@ function createMockTasksRepo(): TasksRepo & {
   const insertMock = vi.fn((input: any) => {
     const row: TaskRecord = {
       id: nextId++,
-      exit_code: null,
-      start_time: null,
-      end_time: null,
-      duration: null,
       task_spec_json: null,
       attempt: null,
       max_attempts: null,
@@ -40,9 +36,9 @@ function createMockTasksRepo(): TasksRepo & {
       start_time: Object.prototype.hasOwnProperty.call(input, 'start_time') ? input.start_time : cur.start_time,
       end_time: Object.prototype.hasOwnProperty.call(input, 'end_time') ? input.end_time : cur.end_time,
       duration: Object.prototype.hasOwnProperty.call(input, 'duration') ? input.duration : cur.duration,
-      task_spec_json: Object.prototype.hasOwnProperty.call(input, 'task_spec_json') ? input.task_spec_json : cur.task_spec_json,
       attempt: Object.prototype.hasOwnProperty.call(input, 'attempt') ? input.attempt : cur.attempt,
-      max_attempts: Object.prototype.hasOwnProperty.call(input, 'max_attempts') ? input.max_attempts : cur.max_attempts
+      max_attempts: Object.prototype.hasOwnProperty.call(input, 'max_attempts') ? input.max_attempts : cur.max_attempts,
+      task_spec_json: Object.prototype.hasOwnProperty.call(input, 'task_spec_json') ? input.task_spec_json : cur.task_spec_json
     }
     rows.set(input.run_id, next)
     return next
@@ -97,6 +93,20 @@ function createFakeProcessManager() {
 }
 
 describe('jobRuntime', () => {
+  test('enqueue: 传入 scripts/xxx.py 时会把原始 script 路径透传给 processManager.start', async () => {
+    const tasksRepo = createMockTasksRepo()
+    const pm = createFakeProcessManager()
+    const killTree = vi.fn(async () => {})
+
+    const runtime = createJobRuntime({ processManager: pm as any, tasksRepo, killTree, now: () => 0, maxConcurrency: 2 })
+
+    await runtime.enqueue({ runId: 'r1', script: 'scripts/a.py', args: ['--scenario', 's1'] } as any)
+    expect(pm.start).toHaveBeenCalled()
+    expect(pm.start.mock.calls[0]?.[0]).toMatchObject({ script: 'scripts/a.py' })
+
+    runtime.dispose()
+  })
+
   test('queued/running/exited 会按事件更新 tasksRepo，并在退出后自动启动下一个', async () => {
     const tasksRepo = createMockTasksRepo()
     const pm = createFakeProcessManager()
@@ -172,5 +182,31 @@ describe('jobRuntime', () => {
 
     runtime.dispose()
     vi.useRealTimers()
+  })
+
+  test('auto-retry: 非 0 退出码且 attempt < max_attempts 时会 requeue 并再次启动', async () => {
+    const tasksRepo = createMockTasksRepo()
+    const pm = createFakeProcessManager()
+    const killTree = vi.fn(async () => {})
+
+    const runtime = createJobRuntime({ processManager: pm as any, tasksRepo, killTree, now: () => Date.now(), maxConcurrency: 1 })
+
+    await runtime.enqueue({ runId: 'r1', script: 'scripts/a.py', args: ['--scenario', 's1'] } as any)
+    tasksRepo.updateStatus({ run_id: 'r1', status: 'running', attempt: 1, max_attempts: 2 } as any)
+
+    pm.emitExit('r1', 1)
+    await flush()
+    await flush()
+
+    expect(pm.start).toHaveBeenCalledTimes(2)
+
+    pm.emitExit('r1', 0)
+    await flush()
+    await flush()
+
+    expect(tasksRepo.getById('r1')?.status).toBe('exited')
+    expect(tasksRepo.getById('r1')?.attempt).toBe(2)
+
+    runtime.dispose()
   })
 })

@@ -23,6 +23,21 @@ function waitFor<T>(
 }
 
 describe('PythonProcessManager', () => {
+  test('pythonBin override: 使用 cfg.pythonBin 而不是默认 pythonBin', async () => {
+    const manager = new PythonProcessManager({ pythonBin: 'python3' })
+    const runId = `bin-${Date.now()}`
+
+    const res = await manager.start({
+      runId,
+      script: 'scripts/mock_device.py',
+      args: ['--scenario', 'normal'],
+      pythonBin: '__omni_missing_python_bin__'
+    } as any)
+
+    if (res.success) await manager.kill(runId)
+    expect(res.success).toBe(false)
+  })
+
   test('spawn: 启动并捕获首行日志', async () => {
     const manager = new PythonProcessManager({ pythonBin: 'python3' })
     const runId = `test-${Date.now()}`

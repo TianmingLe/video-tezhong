@@ -1,70 +1,43 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { PythonEnvManager } from './PythonEnvManager'
 
-function createTempDir(prefix: string) {
-  return fs.mkdtempSync(path.join(os.tmpdir(), prefix))
-}
-
 describe('PythonEnvManager', () => {
-  test('ensureMediacrawlerEnv creates venv and installs requirements, then reuses marker', async () => {
-    const userDataPath = createTempDir('omni-ud-')
-    const mediacrawlerRoot = createTempDir('omni-mc-')
-    fs.writeFileSync(path.join(mediacrawlerRoot, 'requirements.txt'), 'requests==2.0.0\n', 'utf-8')
+  test('ensureMediacrawlerEnv: marker 缺失时会创建 venv 并安装 requirements', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'omni-pyenv-'))
+    const mediaRoot = path.join(root, 'MediaCrawler')
+    fs.mkdirSync(mediaRoot, { recursive: true })
+    fs.writeFileSync(path.join(mediaRoot, 'requirements.txt'), 'requests==2.0.0\n', 'utf-8')
 
-    const calls: Array<{ file: string; args: string[] }> = []
-    const execFile = (file: string, args: string[], _opts: any, cb: any) => {
-      calls.push({ file, args })
-      if (args[0] === '-m' && args[1] === 'venv') {
-        const venvPath = String(args[2])
-        const pythonBin =
-          process.platform === 'win32'
-            ? path.join(venvPath, 'Scripts', 'python.exe')
-            : path.join(venvPath, 'bin', 'python')
-        fs.mkdirSync(path.dirname(pythonBin), { recursive: true })
-        fs.writeFileSync(pythonBin, 'x', 'utf-8')
-      }
-      cb(null, '', '')
-    }
-
-    const mgr = new PythonEnvManager({
-      userDataPath,
-      platform: process.platform,
-      mediacrawlerRoot,
-      log: () => {},
-      execFile: execFile as any,
-      checkPython: async () => ({ ok: true, version: '3.11.9', bin: process.platform === 'win32' ? 'python' : 'python3' })
+    const calls: Array<{ bin: string; args: string[]; env?: Record<string, string> }> = []
+    const execFile = vi.fn(async (bin: string, args: string[], opts?: { env?: Record<string, string> }) => {
+      calls.push({ bin, args, env: opts?.env })
     })
 
-    const r1 = await mgr.ensureMediacrawlerEnv()
-    expect(r1.ok).toBe(true)
-    expect(calls.some((c) => c.args.join(' ').includes('-m venv'))).toBe(true)
-    expect(calls.some((c) => c.args.join(' ').includes('-m pip install -U pip'))).toBe(true)
-    expect(calls.some((c) => c.args.join(' ').includes('-m pip install -r'))).toBe(true)
-
-    calls.length = 0
-    const r2 = await mgr.ensureMediacrawlerEnv()
-    expect(r2.ok).toBe(true)
-    expect(calls.length).toBe(0)
-  })
-
-  test('ensureMediacrawlerEnv rejects unsupported python version', async () => {
-    const userDataPath = createTempDir('omni-ud-')
-    const mediacrawlerRoot = createTempDir('omni-mc-')
-    fs.writeFileSync(path.join(mediacrawlerRoot, 'requirements.txt'), 'requests==2.0.0\n', 'utf-8')
-
     const mgr = new PythonEnvManager({
-      userDataPath,
-      platform: process.platform,
-      mediacrawlerRoot,
-      log: () => {},
-      execFile: (() => {}) as any,
-      checkPython: async () => ({ ok: true, version: '3.10.1', bin: process.platform === 'win32' ? 'python' : 'python3' })
+      userDataPath: root,
+      mediaCrawlerRoot: mediaRoot,
+      systemPythonBin: 'python3',
+      execFile
     })
 
-    const r = await mgr.ensureMediacrawlerEnv()
-    expect(r.ok).toBe(false)
+    const res = await mgr.ensureMediacrawlerEnv()
+    expect(res.ok).toBe(true)
+    if (!res.ok) throw new Error('expected ok')
+
+    const venvPath = path.join(root, 'python', 'mediacrawler-venv')
+    const venvPython = path.join(venvPath, 'bin', 'python')
+
+    expect(res.pythonBin).toBe(venvPython)
+    expect(calls[0]).toMatchObject({ bin: 'python3', args: ['-m', 'venv', venvPath] })
+    expect(calls[1]).toMatchObject({ bin: venvPython, args: ['-m', 'pip', 'install', '-U', 'pip'] })
+    expect(calls[2]).toMatchObject({ bin: venvPython, args: ['-m', 'pip', 'install', '-r', path.join(mediaRoot, 'requirements.txt')] })
+
+    const marker = fs.readFileSync(path.join(venvPath, '.omni-installed.json'), 'utf-8')
+    expect(marker).toMatch(/requirementsHash/)
+    expect(marker).toMatch(/pythonVersion/)
   })
 })
+

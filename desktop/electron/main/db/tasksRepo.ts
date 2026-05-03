@@ -1,19 +1,8 @@
 import { runWithRetry, type SqliteDb } from './index'
 import type { TaskRecord, TaskStatus } from './types'
 
-export type TaskInsert = {
-  run_id: string
-  script: string
-  scenario: string
-  status: TaskStatus
-  exit_code?: number | null
-  start_time?: number | null
-  end_time?: number | null
-  duration?: number | null
-  task_spec_json?: string | null
-  attempt?: number | null
-  max_attempts?: number | null
-}
+export type TaskInsert = Omit<TaskRecord, 'id' | 'task_spec_json' | 'attempt' | 'max_attempts'> &
+  Partial<Pick<TaskRecord, 'task_spec_json' | 'attempt' | 'max_attempts'>>
 
 export type TaskStatusUpdate = {
   run_id: string

@@ -6,22 +6,14 @@ import { createDbForTest, initDb } from './index'
 import { createTasksRepo } from './tasksRepo'
 
 let tmpFile: string | null = null
-let dbToClose: { close: () => void } | null = null
 afterEach(() => {
-  try {
-    dbToClose?.close()
-  } catch {}
-  dbToClose = null
-  try {
-    if (tmpFile && fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile)
-  } catch {}
+  if (tmpFile && fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile)
   tmpFile = null
 })
 
 function createDb() {
   tmpFile = path.join(os.tmpdir(), `omni-${Date.now()}-${Math.random()}.db`)
   const db = createDbForTest(tmpFile)
-  dbToClose = db
   initDb(db)
   return db
 }
@@ -61,11 +53,23 @@ describe('tasksRepo', () => {
       duration: null
     })
 
-    const row = repo.updateStatus({ run_id: 'r2', status: 'exited', exit_code: 0, end_time: 20, duration: 10 })
+    const row = repo.updateStatus({
+      run_id: 'r2',
+      status: 'exited',
+      exit_code: 0,
+      end_time: 20,
+      duration: 10,
+      attempt: 2,
+      max_attempts: 3,
+      task_spec_json: '{}'
+    } as any)
     expect(row.status).toBe('exited')
     expect(row.exit_code).toBe(0)
     expect(row.end_time).toBe(20)
     expect(row.duration).toBe(10)
+    expect(row.attempt).toBe(2)
+    expect(row.max_attempts).toBe(3)
+    expect(row.task_spec_json).toBe('{}')
   })
 
   test('getAll: 按 end_time/start_time 倒序', () => {

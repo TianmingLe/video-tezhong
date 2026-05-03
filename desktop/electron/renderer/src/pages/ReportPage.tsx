@@ -7,6 +7,8 @@ import { LogViewer } from '../features/task/LogViewer'
 import { MAX_UI_LOG_LINES } from '../features/task/logBuffer'
 import { parseLogLine } from '../features/task/logUtils'
 import type { LogItem } from '../features/task/logTypes'
+import { RunArtifactsPanel } from '../features/report/RunArtifactsPanel'
+import { RunTimeline } from '../features/report/RunTimeline'
 
 type ReportNavState = {
   exitCode: number | null
@@ -248,6 +250,11 @@ export function ReportPage() {
             <LogViewer items={logs} hasMore={hasMore} loadingMore={loadingMore} loadMoreError={loadMoreError} onLoadMore={loadMore} />
           </div>
         )}
+      </div>
+
+      <div style={{ marginTop: 12, display: 'grid', gap: 12 }}>
+        <RunArtifactsPanel runId={rid} />
+        <RunTimeline runId={rid} />
       </div>
     </div>
   )

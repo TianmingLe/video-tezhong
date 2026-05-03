@@ -6,22 +6,14 @@ import { createDbForTest, initDb } from './index'
 import { createConfigsRepo } from './configsRepo'
 
 let tmpFile: string | null = null
-let dbToClose: { close: () => void } | null = null
 afterEach(() => {
-  try {
-    dbToClose?.close()
-  } catch {}
-  dbToClose = null
-  try {
-    if (tmpFile && fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile)
-  } catch {}
+  if (tmpFile && fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile)
   tmpFile = null
 })
 
 function createDb() {
   tmpFile = path.join(os.tmpdir(), `omni-${Date.now()}-${Math.random()}.db`)
   const db = createDbForTest(tmpFile)
-  dbToClose = db
   initDb(db)
   return db
 }
@@ -37,8 +29,9 @@ describe('configsRepo', () => {
       scenario: 'normal',
       gateway_ws: null,
       env: '{}',
-      is_default: 0
-    })
+      is_default: 0,
+      task_spec_json: '{"kind":"dy_mvp"}'
+    } as any)
     const b = repo.insert({
       name: 'B',
       script: 'e2e_test.py',
@@ -50,6 +43,7 @@ describe('configsRepo', () => {
 
     expect(a.id).toBe(1)
     expect(b.id).toBe(2)
+    expect(a.task_spec_json).toBe('{"kind":"dy_mvp"}')
     const ids = repo.getAll().map((x) => x.id)
     expect(ids).toEqual([2, 1])
   })

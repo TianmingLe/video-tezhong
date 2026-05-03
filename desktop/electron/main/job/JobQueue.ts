@@ -2,11 +2,15 @@ export type JobState = 'queued' | 'running' | 'exited' | 'error' | 'cancelled'
 
 export type JobRequest = {
   runId: string
-  pythonBin?: string
   script: string
   args: string[]
   cwd?: string
   env?: Record<string, string>
+  pythonBin?: string
+  timeoutMs?: number
+  maxAttempts?: number
+  scriptLabel?: string
+  taskSpecJson?: string | null
 }
 
 export type JobStartResult =
@@ -54,6 +58,7 @@ type JobRecord = {
   exitCode: number | null
   signal: NodeJS.Signals | null
   error: string | null
+  timeout: ReturnType<typeof setTimeout> | null
 }
 
 export class JobQueue {
@@ -105,7 +110,8 @@ export class JobQueue {
       pid: null,
       exitCode: null,
       signal: null,
-      error: null
+      error: null,
+      timeout: null
     }
     this.jobs.set(runId, rec)
 
@@ -120,6 +126,32 @@ export class JobQueue {
     return { success: true, state: 'queued', position: this.queueOrder.length }
   }
 
+  async requeue(runId: string): Promise<EnqueueResult> {
+    const id = String(runId || '').trim()
+    if (!id) return { success: false, error: 'runId is required' }
+    const rec = this.jobs.get(id)
+    if (!rec) return { success: false, error: 'runId not found' }
+    if (rec.state !== 'exited' && rec.state !== 'error') return { success: false, error: 'job not requeueable' }
+
+    this.queueOrder = this.queueOrder.filter((x) => x !== id)
+    this.runningOrder = this.runningOrder.filter((x) => x !== id)
+
+    rec.state = 'queued'
+    rec.pid = null
+    rec.exitCode = null
+    rec.signal = null
+    rec.error = null
+
+    if (this.runningOrder.length + this.starting.size < this.maxConcurrency) {
+      const started = await this.startRun(id)
+      if (!started) return { success: false, error: rec.error ?? 'start failed' }
+      return { success: true, state: 'running' }
+    }
+
+    this.queueOrder.push(id)
+    return { success: true, state: 'queued', position: this.queueOrder.length }
+  }
+
   async cancel(runId: string): Promise<CancelResult> {
     const id = String(runId || '').trim()
     if (!id) return { success: false, error: 'runId is required' }
@@ -129,12 +161,20 @@ export class JobQueue {
     if (rec.state === 'queued') {
       this.queueOrder = this.queueOrder.filter((x) => x !== id)
       rec.state = 'cancelled'
+      if (rec.timeout) {
+        clearTimeout(rec.timeout)
+        rec.timeout = null
+      }
       return { success: true, state: 'cancelled' }
     }
 
     if (rec.state === 'running') {
       this.runningOrder = this.runningOrder.filter((x) => x !== id)
       rec.state = 'cancelled'
+      if (rec.timeout) {
+        clearTimeout(rec.timeout)
+        rec.timeout = null
+      }
       const pid = rec.pid
       if (typeof pid === 'number') await this.deps.killTree(pid)
       await this.maybeStartNext()
@@ -152,6 +192,10 @@ export class JobQueue {
 
     rec.exitCode = ev.code
     rec.signal = ev.signal
+    if (rec.timeout) {
+      clearTimeout(rec.timeout)
+      rec.timeout = null
+    }
 
     if (rec.state === 'running') {
       this.runningOrder = this.runningOrder.filter((x) => x !== id)
@@ -201,6 +245,10 @@ export class JobQueue {
 
     if (cur.state === 'cancelled') {
       cur.pid = res.pid
+      if (cur.timeout) {
+        clearTimeout(cur.timeout)
+        cur.timeout = null
+      }
       await this.deps.killTree(res.pid)
       await this.maybeStartNext()
       return false
@@ -208,6 +256,13 @@ export class JobQueue {
 
     cur.pid = res.pid
     cur.state = 'running'
+    const timeoutMsRaw = cur.req.timeoutMs
+    const timeoutMs = typeof timeoutMsRaw === 'number' && Number.isFinite(timeoutMsRaw) ? timeoutMsRaw : null
+    if (timeoutMs && timeoutMs > 0) {
+      cur.timeout = setTimeout(() => {
+        void this.deps.killTree(res.pid)
+      }, Math.floor(timeoutMs))
+    }
     this.runningOrder.push(runId)
     return true
   }

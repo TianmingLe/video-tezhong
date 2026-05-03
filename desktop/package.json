@@ -2,11 +2,6 @@
   "name": "desktop",
   "private": true,
   "version": "0.0.1",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/TianmingLe/video-tezhong.git",
-    "directory": "desktop"
-  },
   "type": "module",
   "main": "dist/main/index.js",
   "scripts": {
@@ -19,6 +14,11 @@
     "test:e2e": "node scripts/run-playwright.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "validate:yaml": "node scripts/validate-yaml.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TianmingLe/video-tezhong.git",
+    "directory": "desktop"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

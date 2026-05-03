@@ -92,9 +92,44 @@ export function TaskController(props: { initial?: Partial<TaskConfig>; onConfigC
       }
     })
 
-    const script = `scripts/${cfg.script}`
-    const args = ['--scenario', cfg.scenario, '--trace-id', runId]
-    const res = await window.api.job.start({ runId, script, args, env: cfg.env })
+    const timeoutMs = cfg.limits?.timeoutMs ?? 0
+    const maxAttempts = cfg.retry?.maxAttempts ?? 1
+
+    const res =
+      cfg.script === 'mediacrawler'
+        ? await window.api.job.start({
+            runId,
+            script: 'mediacrawler',
+            args: [],
+            env: cfg.env,
+            payload: {
+              kind: cfg.mediacrawler?.kind,
+              runId,
+              args:
+                cfg.mediacrawler?.kind === 'dy_mvp'
+                  ? {
+                      specifiedId: (cfg.mediacrawler as any).specifiedId,
+                      enableLlm: (cfg.mediacrawler as any).enableLlm
+                    }
+                  : cfg.mediacrawler?.kind === 'xhs_search' || cfg.mediacrawler?.kind === 'bili_search'
+                    ? {
+                        keywords: (cfg.mediacrawler as any).keywords,
+                        limit: (cfg.mediacrawler as any).limit,
+                        enableLlm: (cfg.mediacrawler as any).enableLlm
+                      }
+                    : {}
+            },
+            maxAttempts,
+            timeoutMs
+          })
+        : await window.api.job.start({
+            runId,
+            script: `scripts/${cfg.script}`,
+            args: ['--scenario', cfg.scenario, '--trace-id', runId],
+            env: cfg.env,
+            maxAttempts,
+            timeoutMs
+          })
     if (!res.success) {
       resetSubscriptions()
       setStatus('error')

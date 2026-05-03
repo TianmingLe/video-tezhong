@@ -118,7 +118,13 @@ export class PythonProcessManager {
     const args = [scriptPath, ...(cfg.args || [])]
     const env = { ...process.env, ...(cfg.env || {}) }
 
-    const child = spawn(cfg.pythonBin ?? this.pythonBin, args, { stdio: ['ignore', 'pipe', 'pipe'], cwd, env })
+    const pythonBin = cfg.pythonBin ?? this.pythonBin
+    const child = spawn(pythonBin, args, { stdio: ['ignore', 'pipe', 'pipe'], cwd, env })
+
+    child.on('error', (e) => {
+      for (const cb of this.errorListeners) cb({ runId, error: String(e?.message || e) })
+    })
+
     const st: JobState = { child, stdoutBuf: '', stderrBuf: '', logs: [] }
     this.jobs.set(runId, st)
 
@@ -132,9 +138,6 @@ export class PythonProcessManager {
 
     child.stdout.on('data', (buf: Buffer) => this.handleChunk(runId, 'stdout', buf.toString('utf-8')))
     child.stderr.on('data', (buf: Buffer) => this.handleChunk(runId, 'stderr', buf.toString('utf-8')))
-    child.on('error', (e) => {
-      for (const cb of this.errorListeners) cb({ runId, error: String(e?.message || e) })
-    })
     child.on('exit', (code, signal) => {
       this.flushBuffers(runId)
       const cur = this.jobs.get(runId)

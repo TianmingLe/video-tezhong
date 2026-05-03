@@ -52,6 +52,12 @@ const api: DesktopApi = {
     },
     getArchivedLog: async (runId, offset, chunkSize) => {
       return await ipcRenderer.invoke(ipcChannels.jobGetArchivedLog, { runId, offset, chunkSize })
+    },
+    listRunArtifacts: async (runId) => {
+      return await ipcRenderer.invoke(ipcChannels.jobListRunArtifacts, { runId })
+    },
+    readRunFile: async (runId, name, maxBytes) => {
+      return await ipcRenderer.invoke(ipcChannels.jobReadRunFile, { runId, name, maxBytes })
     }
   },
   kb: {

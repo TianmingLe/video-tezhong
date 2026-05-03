@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { TaskConfig, taskConfigSchema, scriptEnum } from './configSchema'
@@ -42,6 +42,24 @@ export function TaskConfigForm(props: TaskConfigFormProps) {
 
   const env = watch('env')
   const envKeys = Object.keys(env || {})
+  const script = watch('script')
+  const mc = watch('mediacrawler')
+
+  useEffect(() => {
+    if (script === 'mediacrawler') {
+      const cur = getValues('mediacrawler')
+      if (!cur) {
+        setValue('mediacrawler', { kind: 'dy_mvp', specifiedId: '', enableLlm: false } as any, { shouldDirty: true })
+      }
+      if ((getValues('scenario') || '').trim() !== 'mediacrawler') {
+        setValue('scenario', 'mediacrawler', { shouldDirty: true })
+      }
+      return
+    }
+    if (getValues('mediacrawler')) {
+      setValue('mediacrawler', undefined as any, { shouldDirty: true })
+    }
+  }, [getValues, script, setValue])
 
   const submit = (v: TaskConfig) => {
     const runId = (v.runId || '').trim() || crypto.randomUUID()
@@ -63,14 +81,32 @@ export function TaskConfigForm(props: TaskConfigFormProps) {
 
     const v = getValues()
     try {
-      await window.api.kb.save({
+      const task_spec_json =
+        v.script === 'mediacrawler'
+          ? JSON.stringify({
+              kind: v.mediacrawler?.kind,
+              args:
+                v.mediacrawler?.kind === 'dy_mvp'
+                  ? { specifiedId: (v.mediacrawler as any).specifiedId, enableLlm: (v.mediacrawler as any).enableLlm }
+                  : v.mediacrawler?.kind === 'xhs_search' || v.mediacrawler?.kind === 'bili_search'
+                    ? {
+                        keywords: (v.mediacrawler as any).keywords,
+                        limit: (v.mediacrawler as any).limit,
+                        enableLlm: (v.mediacrawler as any).enableLlm
+                      }
+                    : {}
+            })
+          : null
+      const payload = {
         name: trimmed,
         script: v.script,
         scenario: v.scenario,
         gateway_ws: (v.gatewayWs || '').trim() || null,
         env: JSON.stringify(v.env || {}),
-        is_default: 0
-      })
+        is_default: 0 as const,
+        task_spec_json
+      }
+      await window.api.kb.save(payload)
       window.alert('已保存为模板')
     } catch (e) {
       window.alert(String((e as Error).message || e))
@@ -96,6 +132,49 @@ export function TaskConfigForm(props: TaskConfigFormProps) {
         </select>
         {errors.script && <div className="error">{errors.script.message}</div>}
       </div>
+
+      {script === 'mediacrawler' ? (
+        <div className="row">
+          <label className="label">采集模板</label>
+          <div className="grid2">
+            <label className="inline">
+              <span>类型</span>
+              <select className="input" {...register('mediacrawler.kind' as const)}>
+                <option value="dy_mvp">抖音 MVP</option>
+                <option value="xhs_search">小红书搜索</option>
+                <option value="bili_search">B站搜索</option>
+              </select>
+            </label>
+
+            <label className="inline">
+              <span>启用 LLM</span>
+              <input type="checkbox" {...register('mediacrawler.enableLlm' as const)} />
+            </label>
+          </div>
+
+          {mc?.kind === 'dy_mvp' ? (
+            <div className="row" style={{ marginTop: 8 }}>
+              <label className="label">视频链接/ID</label>
+              <input className="input" placeholder="aweme url / aweme id" {...register('mediacrawler.specifiedId' as const)} />
+            </div>
+          ) : null}
+
+          {mc?.kind === 'xhs_search' || mc?.kind === 'bili_search' ? (
+            <div className="grid2" style={{ marginTop: 8 }}>
+              <label className="inline">
+                <span>关键词</span>
+                <input className="input" {...register('mediacrawler.keywords' as const)} />
+              </label>
+              <label className="inline">
+                <span>数量</span>
+                <input className="input" type="number" {...register('mediacrawler.limit' as const, { valueAsNumber: true })} />
+              </label>
+            </div>
+          ) : null}
+
+          {errors.mediacrawler && <div className="error">{(errors.mediacrawler as any)?.message}</div>}
+        </div>
+      ) : null}
 
       <div className="row">
         <label className="label">场景</label>
@@ -126,6 +205,14 @@ export function TaskConfigForm(props: TaskConfigFormProps) {
           <label className="inline">
             <span>自动跳转报告</span>
             <input type="checkbox" {...register('advanced.autoJumpToReport')} />
+          </label>
+          <label className="inline">
+            <span>重试次数</span>
+            <input className="input" type="number" {...register('retry.maxAttempts', { valueAsNumber: true })} />
+          </label>
+          <label className="inline">
+            <span>超时(ms)</span>
+            <input className="input" type="number" {...register('limits.timeoutMs', { valueAsNumber: true })} />
           </label>
         </div>
       </div>

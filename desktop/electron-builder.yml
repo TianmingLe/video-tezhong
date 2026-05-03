@@ -18,6 +18,11 @@ files:
   - '!**/__tests__/**'
   - '!electron/**'
   - '!scripts/**'
+extraResources:
+  - from: ../MediaCrawler
+    to: MediaCrawler
+  - from: resources/python
+    to: resources/python
 mac:
   identity: null
   target:

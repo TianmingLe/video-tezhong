@@ -4,20 +4,6 @@ export type CheckPythonResult =
   | { ok: true; version: string; bin: string }
   | { ok: false; error: string; suggestion: string; version?: string }
 
-export function isPythonVersionSupported(version: string): boolean {
-  const m = String(version || '').trim().match(/^(\d+)\.(\d+)(?:\.(\d+))?/)
-  if (!m) return false
-  const major = Number(m[1])
-  const minor = Number(m[2])
-  const patch = Number(m[3] ?? 0)
-  if (Number.isNaN(major) || Number.isNaN(minor) || Number.isNaN(patch)) return false
-  if (major > 3) return true
-  if (major < 3) return false
-  if (minor > 11) return true
-  if (minor < 11) return false
-  return patch >= 0
-}
-
 function pickCandidates(platform: NodeJS.Platform): string[] {
   if (platform === 'win32') return ['python', 'python3']
   return ['python3', 'python']

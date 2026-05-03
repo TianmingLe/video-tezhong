@@ -11,6 +11,9 @@ export type JobConfig = {
   args: string[]
   cwd?: string
   env?: Record<string, string>
+  payload?: unknown
+  maxAttempts?: number
+  timeoutMs?: number
 }
 
 export type JobStartResult =
@@ -30,8 +33,6 @@ export type AppNavigateEvent = { path: string }
 export type AppNotifyEvent = { level: 'info' | 'warning' | 'error'; message: string }
 
 export type DbState = { isReadOnly: boolean }
-
-export type AppUninstallResult = { success: true } | { success: false; error: string }
 
 export type TrayLeftClickMode = 'menu' | 'toggle' | 'none'
 
@@ -63,6 +64,14 @@ export type LogsCleanupResult = { success: true; deleted: number } | { success: 
 
 export type FeedbackCollectBundleResult = { markdown: string }
 
+export type AppUninstallResult = { success: true } | { success: false; error: string }
+
+export type JobListRunArtifactsResult =
+  | { success: true; files: Array<{ name: string; size: number }> }
+  | { success: false; error: string }
+
+export type JobReadRunFileResult = { success: true; text: string } | { success: false; error: string }
+
 export type DesktopApi = {
   version: string
   onboarding: {
@@ -80,6 +89,8 @@ export type DesktopApi = {
     queueStatus: () => Promise<JobQueueStatus>
     history: () => Promise<TaskRecord[]>
     getArchivedLog: (runId: string, offset: number, chunkSize: number) => Promise<JobGetArchivedLogResult>
+    listRunArtifacts: (runId: string) => Promise<JobListRunArtifactsResult>
+    readRunFile: (runId: string, name: string, maxBytes?: number) => Promise<JobReadRunFileResult>
   }
   kb: {
     list: () => Promise<ConfigRecord[]>

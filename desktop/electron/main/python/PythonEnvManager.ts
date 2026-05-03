@@ -1,164 +1,115 @@
+import { execFile as nodeExecFile } from 'node:child_process'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
-import { execFile as nodeExecFile } from 'node:child_process'
-import { isPythonVersionSupported, type CheckPythonResult } from '../system/checkPython'
+import { promisify } from 'node:util'
 
 export type EnvEnsureResult = { ok: true; pythonBin: string } | { ok: false; error: string; suggestion: string }
 
-type ExecFile = (
-  file: string,
-  args: string[],
-  options: { cwd?: string; env?: NodeJS.ProcessEnv },
-  cb: (error: any, stdout: string, stderr: string) => void
-) => void
+type ExecFile = (bin: string, args: string[], opts?: { cwd?: string; env?: Record<string, string> }) => Promise<void>
 
-function execFileText(
-  execFile: ExecFile,
-  file: string,
-  args: string[],
-  options: { cwd?: string; env?: NodeJS.ProcessEnv }
-): Promise<{ code: number; stdout: string; stderr: string }> {
-  return new Promise((resolve) => {
-    execFile(file, args, options, (error, stdout, stderr) => {
-      const code = typeof (error as any)?.code === 'number' ? (error as any).code : error ? 1 : 0
-      resolve({ code, stdout: String(stdout || ''), stderr: String(stderr || '') })
-    })
-  })
+const execFileAsync = promisify(nodeExecFile)
+
+function sha256(input: string): string {
+  return crypto.createHash('sha256').update(input).digest('hex')
 }
 
-function sha256(text: string): string {
-  return crypto.createHash('sha256').update(text).digest('hex')
-}
-
-function ensureDir(p: string): void {
-  fs.mkdirSync(p, { recursive: true })
-}
-
-function removeDirSafe(p: string): void {
+function readTextIfExists(p: string): string | null {
   try {
-    fs.rmSync(p, { recursive: true, force: true })
-  } catch {}
-}
-
-function getVenvPythonBin(venvPath: string, platform: NodeJS.Platform): string {
-  if (platform === 'win32') return path.join(venvPath, 'Scripts', 'python.exe')
-  return path.join(venvPath, 'bin', 'python')
-}
-
-type InstalledMarker = {
-  pythonVersion: string
-  requirementsHash: string
-}
-
-function readJsonSafe<T>(filePath: string): T | null {
-  try {
-    const raw = fs.readFileSync(filePath, 'utf-8')
-    return JSON.parse(raw) as T
+    return fs.readFileSync(p, 'utf-8')
   } catch {
     return null
   }
 }
 
-function writeJson(filePath: string, data: unknown): void {
-  ensureDir(path.dirname(filePath))
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8')
+function getVenvPython(venvPath: string): string {
+  if (process.platform === 'win32') return path.join(venvPath, 'Scripts', 'python.exe')
+  return path.join(venvPath, 'bin', 'python')
 }
 
 export class PythonEnvManager {
-  private readonly userDataPath: string
-  private readonly platform: NodeJS.Platform
-  private readonly mediacrawlerRoot: string
-  private readonly log: (line: string) => void
-  private readonly execFile: ExecFile
-  private readonly checkPython: () => Promise<CheckPythonResult>
+  private userDataPath: string
+  private mediaCrawlerRoot: string
+  private systemPythonBin: string
+  private systemPythonVersion: string
+  private execFile: ExecFile
 
   constructor(args: {
     userDataPath: string
-    platform?: NodeJS.Platform
-    mediacrawlerRoot: string
-    log: (line: string) => void
+    mediaCrawlerRoot: string
+    systemPythonBin: string
+    systemPythonVersion?: string
     execFile?: ExecFile
-    checkPython: () => Promise<CheckPythonResult>
   }) {
     this.userDataPath = args.userDataPath
-    this.platform = args.platform ?? process.platform
-    this.mediacrawlerRoot = args.mediacrawlerRoot
-    this.log = args.log
-    this.execFile = args.execFile ?? nodeExecFile
-    this.checkPython = args.checkPython
-  }
-
-  private get venvPath(): string {
-    return path.join(this.userDataPath, 'python', 'mediacrawler-venv')
-  }
-
-  private get markerPath(): string {
-    return path.join(this.venvPath, '.omni-installed.json')
-  }
-
-  private computeRequirementsHash(): string {
-    const reqPath = path.join(this.mediacrawlerRoot, 'requirements.txt')
-    const content = fs.readFileSync(reqPath, 'utf-8')
-    return sha256(content)
+    this.mediaCrawlerRoot = args.mediaCrawlerRoot
+    this.systemPythonBin = args.systemPythonBin
+    this.systemPythonVersion = args.systemPythonVersion ?? 'unknown'
+    this.execFile =
+      args.execFile ??
+      (async (bin, argv, opts) => {
+        await execFileAsync(bin, argv, { cwd: opts?.cwd, env: opts?.env })
+      })
   }
 
   async ensureMediacrawlerEnv(args?: { pythonIndexUrl?: string }): Promise<EnvEnsureResult> {
-    this.log('[python] 检测系统 Python…')
-    const py = await this.checkPython()
-    if (!py.ok) return { ok: false, error: py.error, suggestion: py.suggestion }
-    if (!isPythonVersionSupported(py.version)) {
+    const requirementsPath = path.join(this.mediaCrawlerRoot, 'requirements.txt')
+    const requirements = readTextIfExists(requirementsPath)
+    if (!requirements) {
       return {
         ok: false,
-        error: `Python 版本过低：${py.version}`,
-        suggestion: '请安装 Python 3.11 及以上版本，并确保 PATH 可用。'
+        error: `requirements not found: ${requirementsPath}`,
+        suggestion: '请确认安装包包含 MediaCrawler/requirements.txt，或在开发环境中从仓库根目录运行。'
       }
     }
 
-    const requirementsHash = this.computeRequirementsHash()
-    const prev = readJsonSafe<InstalledMarker>(this.markerPath)
-    const venvPython = getVenvPythonBin(this.venvPath, this.platform)
+    const requirementsHash = sha256(requirements)
+    const venvPath = path.join(this.userDataPath, 'python', 'mediacrawler-venv')
+    const markerPath = path.join(venvPath, '.omni-installed.json')
+    const venvPython = getVenvPython(venvPath)
 
-    const needInstall = !prev || prev.pythonVersion !== py.version || prev.requirementsHash !== requirementsHash || !fs.existsSync(venvPython)
-    if (!needInstall) return { ok: true, pythonBin: venvPython }
-
-    this.log('[python] 初始化运行环境（venv）…')
-    removeDirSafe(this.venvPath)
-    ensureDir(path.dirname(this.venvPath))
-
-    const venvRes = await execFileText(this.execFile, py.bin, ['-m', 'venv', this.venvPath], { cwd: this.mediacrawlerRoot })
-    if (venvRes.code !== 0) {
-      return {
-        ok: false,
-        error: (venvRes.stderr || venvRes.stdout || 'create venv failed').trim(),
-        suggestion: '创建 venv 失败：请检查 Python 安装是否完整，或确认目标目录有写权限。'
-      }
+    const markerRaw = readTextIfExists(markerPath)
+    if (markerRaw) {
+      try {
+        const m = JSON.parse(markerRaw) as any
+        if (m && m.requirementsHash === requirementsHash && m.pythonVersion === this.systemPythonVersion) {
+          return { ok: true, pythonBin: venvPython }
+        }
+      } catch {}
     }
 
-    const env: NodeJS.ProcessEnv = { ...process.env }
-    if (args?.pythonIndexUrl) env.PIP_INDEX_URL = args.pythonIndexUrl
+    try {
+      fs.rmSync(venvPath, { recursive: true, force: true })
+      fs.mkdirSync(path.dirname(venvPath), { recursive: true })
+    } catch {}
 
-    this.log('[python] 安装依赖（pip）…')
-    const pipUpgrade = await execFileText(this.execFile, venvPython, ['-m', 'pip', 'install', '-U', 'pip'], { cwd: this.mediacrawlerRoot, env })
-    if (pipUpgrade.code !== 0) {
+    try {
+      await this.execFile(this.systemPythonBin, ['-m', 'venv', venvPath])
+      fs.mkdirSync(venvPath, { recursive: true })
+
+      const env: Record<string, string> = {}
+      for (const [k, v] of Object.entries(process.env)) {
+        if (typeof v === 'string') env[k] = v
+      }
+      const idx = String(args?.pythonIndexUrl ?? '').trim()
+      if (idx) env.PIP_INDEX_URL = idx
+
+      await this.execFile(venvPython, ['-m', 'pip', 'install', '-U', 'pip'], { env })
+      await this.execFile(venvPython, ['-m', 'pip', 'install', '-r', requirementsPath], { env })
+
+      fs.writeFileSync(
+        markerPath,
+        JSON.stringify({ pythonVersion: this.systemPythonVersion, requirementsHash }, null, 2),
+        'utf-8'
+      )
+
+      return { ok: true, pythonBin: venvPython }
+    } catch (e) {
       return {
         ok: false,
-        error: (pipUpgrade.stderr || pipUpgrade.stdout || 'pip upgrade failed').trim(),
-        suggestion: 'pip 初始化失败：请检查网络/代理，或配置可用的 pip 源。'
+        error: String((e as any)?.message ?? e),
+        suggestion: 'Python 依赖安装失败：请检查网络/代理、pip 源、以及是否能在终端中运行 python -m pip install ...'
       }
     }
-
-    const reqPath = path.join(this.mediacrawlerRoot, 'requirements.txt')
-    const pipInstall = await execFileText(this.execFile, venvPython, ['-m', 'pip', 'install', '-r', reqPath], { cwd: this.mediacrawlerRoot, env })
-    if (pipInstall.code !== 0) {
-      return {
-        ok: false,
-        error: (pipInstall.stderr || pipInstall.stdout || 'pip install failed').trim(),
-        suggestion: '依赖安装失败：请检查网络/代理，或配置可用的 pip 源（例如国内镜像）。'
-      }
-    }
-
-    writeJson(this.markerPath, { pythonVersion: py.version, requirementsHash } satisfies InstalledMarker)
-    return { ok: true, pythonBin: venvPython }
   }
 }

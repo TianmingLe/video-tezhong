@@ -37,7 +37,15 @@ function computeDuration(cur: TaskRecord | null, endTime: number): number | null
   return endTime - start
 }
 
-function ensureTaskRow(args: { tasksRepo: TasksRepo; runId: string; script: string; scenario: string }): void {
+function ensureTaskRow(args: {
+  tasksRepo: TasksRepo
+  runId: string
+  script: string
+  scenario: string
+  attempt?: number | null
+  max_attempts?: number | null
+  task_spec_json?: string | null
+}): void {
   const existing = args.tasksRepo.getById(args.runId)
   if (existing) return
   args.tasksRepo.insert({
@@ -48,7 +56,10 @@ function ensureTaskRow(args: { tasksRepo: TasksRepo; runId: string; script: stri
     exit_code: null,
     start_time: null,
     end_time: null,
-    duration: null
+    duration: null,
+    attempt: args.attempt ?? null,
+    max_attempts: args.max_attempts ?? null,
+    task_spec_json: args.task_spec_json ?? null
   })
 }
 
@@ -118,6 +129,15 @@ export function createJobRuntime(args: {
         args.tasksRepo.updateStatus({ run_id: ev.runId, status: 'cancelled', end_time: ts, duration })
         return
       }
+      const attempt = typeof cur?.attempt === 'number' ? cur.attempt : null
+      const maxAttempts = typeof cur?.max_attempts === 'number' ? cur.max_attempts : null
+      const code = typeof ev.code === 'number' ? ev.code : null
+      if (code && code !== 0 && attempt && maxAttempts && attempt < maxAttempts) {
+        args.tasksRepo.updateStatus({ run_id: ev.runId, status: 'queued', attempt: attempt + 1, exit_code: code })
+        await queue.requeue(ev.runId)
+        emitQueueUpdate()
+        return
+      }
       args.tasksRepo.updateStatus({ run_id: ev.runId, status: 'exited', exit_code: ev.code, end_time: ts, duration })
     } catch {}
   }
@@ -145,13 +165,25 @@ export function createJobRuntime(args: {
 
   const enqueue = async (cfg: JobRequest): Promise<EnqueueResult> => {
     const runId = String(cfg?.runId || '').trim()
-    const script = path.basename(String(cfg?.script || '').trim())
+    const scriptRaw = String(cfg?.script || '').trim()
+    const scriptLabel = String((cfg as any)?.scriptLabel ?? path.basename(scriptRaw)).trim()
     const scenario = inferScenario(cfg?.args)
+    const maxAttemptsRaw = typeof (cfg as any)?.maxAttempts === 'number' ? (cfg as any).maxAttempts : null
+    const maxAttempts = typeof maxAttemptsRaw === 'number' && Number.isFinite(maxAttemptsRaw) ? Math.max(1, Math.floor(maxAttemptsRaw)) : null
+    const taskSpecJson = typeof (cfg as any)?.taskSpecJson === 'string' ? (cfg as any).taskSpecJson : null
 
     if (runId) {
       try {
-        ensureTaskRow({ tasksRepo: args.tasksRepo, runId, script, scenario })
-        args.tasksRepo.updateStatus({ run_id: runId, status: 'queued' })
+        ensureTaskRow({
+          tasksRepo: args.tasksRepo,
+          runId,
+          script: scriptLabel,
+          scenario,
+          attempt: maxAttempts ? 1 : null,
+          max_attempts: maxAttempts,
+          task_spec_json: taskSpecJson
+        })
+        args.tasksRepo.updateStatus({ run_id: runId, status: 'queued', attempt: maxAttempts ? 1 : undefined, max_attempts: maxAttempts ?? undefined } as any)
       } catch {}
     }
 

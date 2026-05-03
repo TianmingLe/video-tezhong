@@ -1,15 +1,7 @@
 import { runWithRetry, type SqliteDb } from './index'
 import type { ConfigRecord } from './types'
 
-export type ConfigInsert = {
-  name: string
-  script: string
-  scenario: string
-  gateway_ws?: string | null
-  env: string
-  is_default?: 0 | 1
-  task_spec_json?: string | null
-}
+export type ConfigInsert = Omit<ConfigRecord, 'id' | 'task_spec_json'> & Partial<Pick<ConfigRecord, 'task_spec_json'>>
 
 export type ConfigUpdate = { id: number } & Partial<Omit<ConfigRecord, 'id'>>
 

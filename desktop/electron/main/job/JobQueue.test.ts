@@ -12,6 +12,26 @@ async function flush(): Promise<void> {
 }
 
 describe('JobQueue', () => {
+  test('timeoutMs 到期会触发 killTree', async () => {
+    vi.useFakeTimers()
+    try {
+      const start = vi.fn(async () => ({ success: true as const, pid: 123 }))
+      const killTree = vi.fn(async () => {})
+      const q = new JobQueue({ start, killTree, maxConcurrency: 2 })
+
+      await q.enqueue({ runId: 'r1', script: 'script.py', args: [], timeoutMs: 1000 } as any)
+
+      await vi.advanceTimersByTimeAsync(999)
+      expect(killTree).toHaveBeenCalledTimes(0)
+      await vi.advanceTimersByTimeAsync(1)
+      await vi.runOnlyPendingTimersAsync()
+
+      expect(killTree).toHaveBeenCalledWith(123)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   test('start 异步较慢时也会严格限制并发=2', async () => {
     let nextPid = 10
     const queue: Array<{
@@ -146,5 +166,18 @@ describe('JobQueue', () => {
     expect(snap.queued.length).toBe(0)
     expect(snap.jobs['r1']?.state).toBe('cancelled')
     expect(snap.jobs['r3']?.state).toBe('running')
+  })
+
+  test('requeue: exited/error 的任务可重新进入队列并再次启动', async () => {
+    let nextPid = 900
+    const start = vi.fn(async () => ({ success: true as const, pid: nextPid++ }))
+    const killTree = vi.fn(async () => {})
+    const q = new JobQueue({ start, killTree, maxConcurrency: 2 })
+
+    expect(await q.enqueue(req('r1'))).toEqual({ success: true, state: 'running' })
+    await q.onExit({ runId: 'r1', code: 1, signal: null })
+    const res = await (q as any).requeue('r1')
+    expect(res).toEqual({ success: true, state: 'running' })
+    expect(start).toHaveBeenCalledTimes(2)
   })
 })

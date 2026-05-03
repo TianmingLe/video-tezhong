@@ -2,39 +2,32 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type { MediaCrawlerTaskSpec } from './mediacrawlerTaskSpec'
 
-function ensureDir(p: string): void {
-  fs.mkdirSync(p, { recursive: true })
+export function resolveMediaCrawlerRoot(args: { isPackaged: boolean; resourcesPath: string; devRoot: string }): string {
+  if (args.isPackaged) return path.join(args.resourcesPath, 'MediaCrawler')
+  return path.join(args.devRoot, 'MediaCrawler')
 }
 
-export function resolveMediaCrawlerRoot(args?: { cwd?: string; resourcesPath?: string; isPackaged?: boolean }): string {
-  const isPackaged = args?.isPackaged ?? false
-  const resourcesPath = args?.resourcesPath ?? (process as any).resourcesPath ?? ''
-  const cwd = args?.cwd ?? process.cwd()
-
-  if (isPackaged && resourcesPath) return path.join(resourcesPath, 'MediaCrawler')
-
-  const fromDesktop = path.resolve(cwd, '..', 'MediaCrawler')
-  if (fs.existsSync(fromDesktop)) return fromDesktop
-  const fromRepoRoot = path.resolve(cwd, 'MediaCrawler')
-  if (fs.existsSync(fromRepoRoot)) return fromRepoRoot
-
-  return fromDesktop
+export function resolveRunnerDir(args: { isPackaged: boolean; resourcesPath: string; devRoot: string }): string {
+  if (args.isPackaged) return path.join(args.resourcesPath, 'resources', 'python')
+  return path.join(args.devRoot, 'desktop', 'resources', 'python')
 }
 
-export function resolveMediaCrawlerRunnerScript(args?: { cwd?: string; resourcesPath?: string; isPackaged?: boolean }): string {
-  const isPackaged = args?.isPackaged ?? false
-  const resourcesPath = args?.resourcesPath ?? (process as any).resourcesPath ?? ''
-  const cwd = args?.cwd ?? process.cwd()
-
-  if (isPackaged && resourcesPath) return path.join(resourcesPath, 'resources', 'python', 'run_mediacrawler.py')
-  return path.resolve(cwd, 'resources', 'python', 'run_mediacrawler.py')
+function assertSafeRunId(runId: string): void {
+  if (!runId) throw new Error('runId is required')
+  if (runId.includes('..') || runId.includes('/') || runId.includes('\\')) throw new Error('invalid runId')
 }
 
-export function writeTaskJson(args: { userDataPath: string; spec: MediaCrawlerTaskSpec }): string {
-  const runDir = path.join(args.userDataPath, 'runs', args.spec.runId)
-  ensureDir(runDir)
-  const fp = path.join(runDir, 'task.json')
-  fs.writeFileSync(fp, JSON.stringify(args.spec, null, 2), 'utf-8')
-  return fp
+export function writeTaskJson(args: {
+  userDataPath: string
+  mediaCrawlerRoot: string
+  spec: MediaCrawlerTaskSpec
+}): { runDir: string; taskJsonPath: string } {
+  assertSafeRunId(args.spec.runId)
+  const runDir = path.join(args.userDataPath, 'results', 'runs', args.spec.runId)
+  fs.mkdirSync(runDir, { recursive: true })
+  const taskJsonPath = path.join(runDir, 'task.json')
+  const payload = { ...args.spec, mediaCrawlerRoot: args.mediaCrawlerRoot, runDir }
+  fs.writeFileSync(taskJsonPath, JSON.stringify(payload, null, 2), 'utf-8')
+  return { runDir, taskJsonPath }
 }
 
