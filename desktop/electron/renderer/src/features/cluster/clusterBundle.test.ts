@@ -12,6 +12,10 @@ describe('clusterBundle', () => {
       useLlm: false,
       maxKnowledgePoints: 500,
       minClusterSize: 3,
+      totalPoints: 2,
+      usedPoints: 2,
+      truncated: false,
+      errorItems: 0,
       rows: [
         {
           id: 'a',

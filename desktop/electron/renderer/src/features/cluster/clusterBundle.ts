@@ -9,6 +9,10 @@ export function buildClusterFiles(args: {
   useLlm: boolean
   maxKnowledgePoints: number
   minClusterSize: number
+  totalPoints: number
+  usedPoints: number
+  truncated: boolean
+  errorItems: number
   rows: ClusterIndexRow[]
   clusters: ClusterGroup[]
   misc: string[]
@@ -44,10 +48,10 @@ export function buildClusterFiles(args: {
   const res: ClusterResult = {
     stats: {
       success_items: args.rows.length,
-      error_items: 0,
-      total_points: args.rows.length,
-      used_points: args.rows.length,
-      truncated: false,
+      error_items: args.errorItems,
+      total_points: args.totalPoints,
+      used_points: args.usedPoints,
+      truncated: args.truncated,
       use_llm: args.useLlm,
       min_cluster_size: args.minClusterSize,
       max_knowledge_points: args.maxKnowledgePoints
@@ -102,4 +106,3 @@ export function buildClusterFiles(args: {
     }
   }
 }
-

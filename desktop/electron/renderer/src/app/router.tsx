@@ -8,6 +8,7 @@ import { Skeleton } from '../components/Skeleton'
 
 const ReportsPage = lazy(() => import('../pages/ReportsPage').then((m) => ({ default: m.ReportsPage })))
 const ReportPage = lazy(() => import('../pages/ReportPage').then((m) => ({ default: m.ReportPage })))
+const ClusterPage = lazy(() => import('../pages/ClusterPage').then((m) => ({ default: m.ClusterPage })))
 const KnowledgeBasePage = lazy(() => import('../pages/KnowledgeBasePage').then((m) => ({ default: m.KnowledgeBasePage })))
 const SettingsPage = lazy(() => import('../pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 
@@ -25,6 +26,14 @@ const router = createBrowserRouter([
         element: (
           <Suspense fallback={<Skeleton />}>
             <ReportsPage />
+          </Suspense>
+        )
+      },
+      {
+        path: 'cluster',
+        element: (
+          <Suspense fallback={<Skeleton />}>
+            <ClusterPage />
           </Suspense>
         )
       },

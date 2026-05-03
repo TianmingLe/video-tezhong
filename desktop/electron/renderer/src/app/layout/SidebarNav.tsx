@@ -4,6 +4,7 @@ const items: Array<{ to: string; label: string }> = [
   { to: '/tasks', label: '任务' },
   { to: '/console', label: '控制台' },
   { to: '/reports', label: '报告' },
+  { to: '/cluster', label: '聚类' },
   { to: '/kb', label: '知识库' },
   { to: '/settings', label: '设置' }
 ]
@@ -29,4 +30,3 @@ export function SidebarNav() {
     </aside>
   )
 }
-
