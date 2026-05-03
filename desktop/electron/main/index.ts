@@ -25,7 +25,9 @@ import { PythonEnvManager } from './python/PythonEnvManager'
 import { validateMediaCrawlerTaskSpec } from './mediacrawler/mediacrawlerTaskSpec'
 import { resolveMediaCrawlerRoot, resolveRunnerDir, writeTaskJson } from './mediacrawler/mediacrawlerRunner'
 import { getLlmConfigFilePath, loadLlmConfig, saveLlmConfig } from './llm/llmConfig'
+import { createLlmClient } from './llm/llmClient'
 import { createAggregateStore } from './aggregate/aggregateStore'
+import { createClusterStore } from './cluster/clusterStore'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -90,6 +92,7 @@ app.whenReady().then(() => {
   const tasksRepo = createTasksRepo(db)
   const configsRepo = createConfigsRepo(db)
   const aggregateStore = createAggregateStore({ userDataPath, fs })
+  const clusterStore = createClusterStore({ userDataPath, fs })
   const updateService = new UpdateService(electronUpdater.autoUpdater)
   const onboardingStore = createOnboardingStore({ userDataPath, fs })
   const feedbackCollector = createFeedbackCollector({
@@ -102,6 +105,22 @@ app.whenReady().then(() => {
     arch: process.arch,
     nodeVersion: process.versions.node,
     electronVersion: process.versions.electron
+  })
+
+  const llmClient = createLlmClient({
+    getConfig: () => {
+      const cfg = loadLlmConfig({
+        userDataPath,
+        fs,
+        safeStorage: {
+          isEncryptionAvailable: () => safeStorage.isEncryptionAvailable(),
+          encryptString: (text) => safeStorage.encryptString(text),
+          decryptString: (buf) => safeStorage.decryptString(buf)
+        }
+      })
+      if (!cfg.apiKey || !cfg.apiBaseUrl || !cfg.model) return null
+      return { apiBaseUrl: cfg.apiBaseUrl, model: cfg.model, apiKey: cfg.apiKey }
+    }
   })
 
   updateService.onEvent((ev) => {
@@ -517,6 +536,91 @@ app.whenReady().then(() => {
       fs.mkdirSync(destDirPath, { recursive: true })
       aggregateStore.copyToDir({ dirName, names, destDirPath })
       return { success: true as const, dirPath: destDirPath }
+    } catch (e) {
+      return { success: false as const, error: String((e as Error)?.message || e) }
+    }
+  })
+
+  ipcMain.handle(ipcChannels.clusterSave, async (_evt, input: unknown) => {
+    const o = (input && typeof input === 'object' ? (input as Record<string, unknown>) : null) ?? {}
+    const runs = Array.isArray(o.runs) ? o.runs.map((x) => String(x)).filter(Boolean) : []
+    const filesObj = (o.files && typeof o.files === 'object' ? (o.files as Record<string, unknown>) : null) ?? {}
+    const files: Record<string, string> = {}
+    for (const [k, v] of Object.entries(filesObj)) {
+      if (typeof v === 'string') files[String(k)] = v
+    }
+    return clusterStore.save({ runs, files })
+  })
+
+  ipcMain.handle(ipcChannels.clusterList, async () => {
+    return clusterStore.list()
+  })
+
+  ipcMain.handle(ipcChannels.clusterReadFile, async (_evt, input: unknown) => {
+    try {
+      const o = (input && typeof input === 'object' ? (input as Record<string, unknown>) : null) ?? {}
+      const dirName = String(o.dirName ?? '')
+      const name = String(o.name ?? '')
+      const maxBytesRaw = typeof o.maxBytes === 'number' ? o.maxBytes : undefined
+      const maxBytes = typeof maxBytesRaw === 'number' && Number.isFinite(maxBytesRaw) ? Math.max(1, Math.floor(maxBytesRaw)) : undefined
+      const text = clusterStore.readFile({ dirName, name, maxBytes })
+      return { success: true as const, text }
+    } catch (e) {
+      return { success: false as const, error: String((e as Error)?.message || e) }
+    }
+  })
+
+  ipcMain.handle(ipcChannels.clusterDelete, async (_evt, input: unknown) => {
+    try {
+      const o = (input && typeof input === 'object' ? (input as Record<string, unknown>) : null) ?? {}
+      const dirName = String(o.dirName ?? '')
+      const names = Array.isArray(o.names) ? o.names.map((x) => String(x)) : undefined
+      clusterStore.delete({ dirName, names })
+      return { success: true as const }
+    } catch (e) {
+      return { success: false as const, error: String((e as Error)?.message || e) }
+    }
+  })
+
+  ipcMain.handle(ipcChannels.clusterExport, async (_evt, input: unknown) => {
+    try {
+      const o = (input && typeof input === 'object' ? (input as Record<string, unknown>) : null) ?? {}
+      const dirName = String(o.dirName ?? '')
+      const names = Array.isArray(o.names) ? o.names.map((x) => String(x)).filter(Boolean) : []
+      if (names.length === 0) return { success: false as const, error: 'no files selected' }
+
+      const picked = await dialog.showOpenDialog({
+        title: '选择导出目录',
+        properties: ['openDirectory', 'createDirectory']
+      })
+      if (picked.canceled || !picked.filePaths[0]) return { success: false as const, error: 'cancelled' }
+      const destDirPath = picked.filePaths[0]
+      fs.mkdirSync(destDirPath, { recursive: true })
+      clusterStore.copyToDir({ dirName, names, destDirPath })
+      return { success: true as const, dirPath: destDirPath }
+    } catch (e) {
+      return { success: false as const, error: String((e as Error)?.message || e) }
+    }
+  })
+
+  ipcMain.handle(ipcChannels.llmChat, async (_evt, input: unknown) => {
+    try {
+      const o = (input && typeof input === 'object' ? (input as Record<string, unknown>) : null) ?? {}
+      const messagesRaw = Array.isArray(o.messages) ? o.messages : []
+      const messages = messagesRaw
+        .map((m) => {
+          const mm = m && typeof m === 'object' && !Array.isArray(m) ? (m as Record<string, unknown>) : null
+          const role = String(mm?.role ?? '')
+          if (role !== 'system' && role !== 'user' && role !== 'assistant') return null
+          const content = String(mm?.content ?? '')
+          return { role: role as 'system' | 'user' | 'assistant', content }
+        })
+        .filter(Boolean) as Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
+      if (messages.length === 0) throw new Error('messages is required')
+      const tRaw = typeof o.temperature === 'number' ? o.temperature : 0
+      const temperature = Number.isFinite(tRaw) ? Math.max(0, Math.min(2, tRaw)) : 0
+      const content = await llmClient.chatCompletion({ messages, temperature })
+      return { success: true as const, content }
     } catch (e) {
       return { success: false as const, error: String((e as Error)?.message || e) }
     }

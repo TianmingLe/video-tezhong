@@ -68,6 +68,9 @@ const api: DesktopApi = {
       return await ipcRenderer.invoke(ipcChannels.llmSetConfig, input ?? {})
     }
   },
+  llmChat: async (input) => {
+    return await ipcRenderer.invoke(ipcChannels.llmChat, input ?? {})
+  },
   aggregate: {
     save: async (input) => {
       return await ipcRenderer.invoke(ipcChannels.aggregateSave, input ?? {})
@@ -83,6 +86,23 @@ const api: DesktopApi = {
     },
     export: async (input) => {
       return await ipcRenderer.invoke(ipcChannels.aggregateExport, input ?? {})
+    }
+  },
+  cluster: {
+    save: async (input) => {
+      return await ipcRenderer.invoke(ipcChannels.clusterSave, input ?? {})
+    },
+    list: async () => {
+      return await ipcRenderer.invoke(ipcChannels.clusterList)
+    },
+    readFile: async (input) => {
+      return await ipcRenderer.invoke(ipcChannels.clusterReadFile, input ?? {})
+    },
+    delete: async (input) => {
+      return await ipcRenderer.invoke(ipcChannels.clusterDelete, input ?? {})
+    },
+    export: async (input) => {
+      return await ipcRenderer.invoke(ipcChannels.clusterExport, input ?? {})
     }
   },
   kb: {
