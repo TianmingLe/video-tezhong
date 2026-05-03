@@ -102,7 +102,12 @@ def main() -> int:
         else:
             print("[OMNI] enableLlm=true but llmModel/llmBaseUrl missing, run without LLM")
 
-    print(f"[OMNI] runId={run_id} cmd={' '.join(cmd)} cwd={run_dir_p.as_posix()}")
+    cmd_display = list(cmd)
+    if "--llm_api_key" in cmd_display:
+        i = cmd_display.index("--llm_api_key")
+        if i + 1 < len(cmd_display):
+            cmd_display[i + 1] = "***"
+    print(f"[OMNI] runId={run_id} cmd={' '.join(cmd_display)} cwd={run_dir_p.as_posix()}")
 
     proc = subprocess.Popen(
         cmd,
@@ -130,4 +135,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
