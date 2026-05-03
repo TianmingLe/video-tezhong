@@ -25,6 +25,7 @@ import { PythonEnvManager } from './python/PythonEnvManager'
 import { validateMediaCrawlerTaskSpec } from './mediacrawler/mediacrawlerTaskSpec'
 import { resolveMediaCrawlerRoot, resolveRunnerDir, writeTaskJson } from './mediacrawler/mediacrawlerRunner'
 import { getLlmConfigFilePath, loadLlmConfig, saveLlmConfig } from './llm/llmConfig'
+import { createAggregateStore } from './aggregate/aggregateStore'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -88,6 +89,7 @@ app.whenReady().then(() => {
   const db = getDb()
   const tasksRepo = createTasksRepo(db)
   const configsRepo = createConfigsRepo(db)
+  const aggregateStore = createAggregateStore({ userDataPath, fs })
   const updateService = new UpdateService(electronUpdater.autoUpdater)
   const onboardingStore = createOnboardingStore({ userDataPath, fs })
   const feedbackCollector = createFeedbackCollector({
@@ -456,6 +458,68 @@ app.whenReady().then(() => {
   ipcMain.handle(ipcChannels.kbSetDefault, async (_evt, id: number) => {
     configsRepo.setDefault(id)
     return { success: true as const }
+  })
+
+  ipcMain.handle(ipcChannels.aggregateSave, async (_evt, input: unknown) => {
+    const o = (input && typeof input === 'object' ? (input as Record<string, unknown>) : null) ?? {}
+    const runs = Array.isArray(o.runs) ? o.runs.map((x) => String(x)).filter(Boolean) : []
+    const filesObj = (o.files && typeof o.files === 'object' ? (o.files as Record<string, unknown>) : null) ?? {}
+    const files: Record<string, string> = {}
+    for (const [k, v] of Object.entries(filesObj)) {
+      if (typeof v === 'string') files[String(k)] = v
+    }
+    return aggregateStore.save({ runs, files })
+  })
+
+  ipcMain.handle(ipcChannels.aggregateList, async () => {
+    return aggregateStore.list()
+  })
+
+  ipcMain.handle(ipcChannels.aggregateReadFile, async (_evt, input: unknown) => {
+    try {
+      const o = (input && typeof input === 'object' ? (input as Record<string, unknown>) : null) ?? {}
+      const dirName = String(o.dirName ?? '')
+      const name = String(o.name ?? '')
+      const maxBytesRaw = typeof o.maxBytes === 'number' ? o.maxBytes : undefined
+      const maxBytes = typeof maxBytesRaw === 'number' && Number.isFinite(maxBytesRaw) ? Math.max(1, Math.floor(maxBytesRaw)) : undefined
+      const text = aggregateStore.readFile({ dirName, name, maxBytes })
+      return { success: true as const, text }
+    } catch (e) {
+      return { success: false as const, error: String((e as Error)?.message || e) }
+    }
+  })
+
+  ipcMain.handle(ipcChannels.aggregateDelete, async (_evt, input: unknown) => {
+    try {
+      const o = (input && typeof input === 'object' ? (input as Record<string, unknown>) : null) ?? {}
+      const dirName = String(o.dirName ?? '')
+      const names = Array.isArray(o.names) ? o.names.map((x) => String(x)) : undefined
+      aggregateStore.delete({ dirName, names })
+      return { success: true as const }
+    } catch (e) {
+      return { success: false as const, error: String((e as Error)?.message || e) }
+    }
+  })
+
+  ipcMain.handle(ipcChannels.aggregateExport, async (_evt, input: unknown) => {
+    try {
+      const o = (input && typeof input === 'object' ? (input as Record<string, unknown>) : null) ?? {}
+      const dirName = String(o.dirName ?? '')
+      const names = Array.isArray(o.names) ? o.names.map((x) => String(x)).filter(Boolean) : []
+      if (names.length === 0) return { success: false as const, error: 'no files selected' }
+
+      const picked = await dialog.showOpenDialog({
+        title: '选择导出目录',
+        properties: ['openDirectory', 'createDirectory']
+      })
+      if (picked.canceled || !picked.filePaths[0]) return { success: false as const, error: 'cancelled' }
+      const destDirPath = picked.filePaths[0]
+      fs.mkdirSync(destDirPath, { recursive: true })
+      aggregateStore.copyToDir({ dirName, names, destDirPath })
+      return { success: true as const, dirPath: destDirPath }
+    } catch (e) {
+      return { success: false as const, error: String((e as Error)?.message || e) }
+    }
   })
 
   ipcMain.handle(ipcChannels.llmGetConfig, async () => {

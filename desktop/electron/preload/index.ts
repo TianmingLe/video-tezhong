@@ -68,6 +68,23 @@ const api: DesktopApi = {
       return await ipcRenderer.invoke(ipcChannels.llmSetConfig, input ?? {})
     }
   },
+  aggregate: {
+    save: async (input) => {
+      return await ipcRenderer.invoke(ipcChannels.aggregateSave, input ?? {})
+    },
+    list: async () => {
+      return await ipcRenderer.invoke(ipcChannels.aggregateList)
+    },
+    readFile: async (input) => {
+      return await ipcRenderer.invoke(ipcChannels.aggregateReadFile, input ?? {})
+    },
+    delete: async (input) => {
+      return await ipcRenderer.invoke(ipcChannels.aggregateDelete, input ?? {})
+    },
+    export: async (input) => {
+      return await ipcRenderer.invoke(ipcChannels.aggregateExport, input ?? {})
+    }
+  },
   kb: {
     list: async () => {
       return await ipcRenderer.invoke(ipcChannels.kbList)
