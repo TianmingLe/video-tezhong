@@ -8,7 +8,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: nightly-release
@@ -96,6 +96,8 @@ jobs:
     name: Publish nightly release
     runs-on: ubuntu-latest
     needs: build
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -122,8 +124,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh release delete nightly -y || true
-          gh release create nightly --prerelease --title nightly --notes "Nightly build for ${GITHUB_SHA}"
+          if gh release view nightly >/dev/null 2>&1; then
+            gh release edit nightly --prerelease --title nightly --notes "Nightly build for ${GITHUB_SHA}"
+          else
+            gh release create nightly --prerelease --title nightly --notes "Nightly build for ${GITHUB_SHA}"
+          fi
 
       - name: Upload new assets
         shell: bash
