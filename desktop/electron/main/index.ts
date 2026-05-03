@@ -260,8 +260,28 @@ app.whenReady().then(() => {
       const ensured = await envManager.ensureMediacrawlerEnv({ pythonIndexUrl: v.value.pythonIndexUrl })
       if (!ensured.ok) return { success: false as const, error: `${ensured.error}\n${ensured.suggestion}` }
 
-      const { taskJsonPath } = writeTaskJson({ userDataPath, mediaCrawlerRoot, spec: v.value })
       const taskSpecJson = JSON.stringify(v.value)
+      const specForRun = { ...v.value, args: { ...(v.value.args || {}) } }
+      if (specForRun.args.enableLlm === true) {
+        const llm = loadLlmConfig({
+          userDataPath,
+          fs,
+          safeStorage: {
+            isEncryptionAvailable: () => safeStorage.isEncryptionAvailable(),
+            encryptString: (text) => safeStorage.encryptString(text),
+            decryptString: (buf) => safeStorage.decryptString(buf)
+          }
+        })
+        if (llm.apiKey && llm.apiBaseUrl && llm.model) {
+          specForRun.args.llmModel = llm.model
+          specForRun.args.llmBaseUrl = llm.apiBaseUrl
+          specForRun.args.llmApiKey = llm.apiKey
+        } else {
+          specForRun.args.enableLlm = false
+        }
+      }
+
+      const { taskJsonPath } = writeTaskJson({ userDataPath, mediaCrawlerRoot, spec: specForRun })
       const req = {
         runId,
         script: 'run_mediacrawler.py',
