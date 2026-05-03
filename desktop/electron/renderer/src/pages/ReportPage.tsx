@@ -9,6 +9,7 @@ import { parseLogLine } from '../features/task/logUtils'
 import type { LogItem } from '../features/task/logTypes'
 import { RunArtifactsPanel } from '../features/report/RunArtifactsPanel'
 import { RunTimeline } from '../features/report/RunTimeline'
+import { RunLlmSummaryPanel } from '../features/report/RunLlmSummaryPanel'
 
 type ReportNavState = {
   exitCode: number | null
@@ -255,6 +256,7 @@ export function ReportPage() {
       <div style={{ marginTop: 12, display: 'grid', gap: 12 }}>
         <RunArtifactsPanel runId={rid} />
         <RunTimeline runId={rid} />
+        <RunLlmSummaryPanel runId={rid} />
       </div>
     </div>
   )

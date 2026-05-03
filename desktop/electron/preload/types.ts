@@ -72,6 +72,14 @@ export type JobListRunArtifactsResult =
 
 export type JobReadRunFileResult = { success: true; text: string } | { success: false; error: string }
 
+export type LlmConfigView = {
+  apiBaseUrl: string
+  model: string
+  hasKey: boolean
+  keyStorage: 'safeStorage' | 'plain' | null
+  encryptionAvailable: boolean
+}
+
 export type DesktopApi = {
   version: string
   onboarding: {
@@ -91,6 +99,10 @@ export type DesktopApi = {
     getArchivedLog: (runId: string, offset: number, chunkSize: number) => Promise<JobGetArchivedLogResult>
     listRunArtifacts: (runId: string) => Promise<JobListRunArtifactsResult>
     readRunFile: (runId: string, name: string, maxBytes?: number) => Promise<JobReadRunFileResult>
+  }
+  llm: {
+    getConfig: () => Promise<LlmConfigView>
+    setConfig: (input: { apiBaseUrl: string; model: string; apiKey?: string }) => Promise<LlmConfigView>
   }
   kb: {
     list: () => Promise<ConfigRecord[]>

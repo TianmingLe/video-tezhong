@@ -60,6 +60,14 @@ const api: DesktopApi = {
       return await ipcRenderer.invoke(ipcChannels.jobReadRunFile, { runId, name, maxBytes })
     }
   },
+  llm: {
+    getConfig: async () => {
+      return await ipcRenderer.invoke(ipcChannels.llmGetConfig)
+    },
+    setConfig: async (input) => {
+      return await ipcRenderer.invoke(ipcChannels.llmSetConfig, input ?? {})
+    }
+  },
   kb: {
     list: async () => {
       return await ipcRenderer.invoke(ipcChannels.kbList)

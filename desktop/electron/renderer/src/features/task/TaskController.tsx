@@ -95,6 +95,46 @@ export function TaskController(props: { initial?: Partial<TaskConfig>; onConfigC
     const timeoutMs = cfg.limits?.timeoutMs ?? 0
     const maxAttempts = cfg.retry?.maxAttempts ?? 1
 
+    let enableLlmEffective = false
+    if (cfg.script === 'mediacrawler') {
+      enableLlmEffective = Boolean((cfg.mediacrawler as any)?.enableLlm)
+      if (enableLlmEffective) {
+        try {
+          const cur = await window.api.llm.getConfig()
+          let apiBaseUrl = String(cur.apiBaseUrl || '').trim()
+          let model = String(cur.model || '').trim()
+          let apiKey: string | undefined = undefined
+
+          if (!apiBaseUrl) {
+            const v = window.prompt('LLM Base URL', '')
+            if (v == null) enableLlmEffective = false
+            else apiBaseUrl = String(v).trim()
+          }
+
+          if (enableLlmEffective && !model) {
+            const v = window.prompt('LLM Model', '')
+            if (v == null) enableLlmEffective = false
+            else model = String(v).trim()
+          }
+
+          if (enableLlmEffective && !cur.hasKey) {
+            const v = window.prompt('LLM API Key', '')
+            if (v == null) enableLlmEffective = false
+            else apiKey = String(v)
+          }
+
+          if (enableLlmEffective && apiBaseUrl && model) {
+            const saved = await window.api.llm.setConfig({ apiBaseUrl, model, ...(apiKey ? { apiKey } : {}) })
+            enableLlmEffective = Boolean(saved.hasKey)
+          } else {
+            enableLlmEffective = false
+          }
+        } catch {
+          enableLlmEffective = false
+        }
+      }
+    }
+
     const res =
       cfg.script === 'mediacrawler'
         ? await window.api.job.start({
@@ -109,13 +149,13 @@ export function TaskController(props: { initial?: Partial<TaskConfig>; onConfigC
                 cfg.mediacrawler?.kind === 'dy_mvp'
                   ? {
                       specifiedId: (cfg.mediacrawler as any).specifiedId,
-                      enableLlm: (cfg.mediacrawler as any).enableLlm
+                      enableLlm: enableLlmEffective
                     }
                   : cfg.mediacrawler?.kind === 'xhs_search' || cfg.mediacrawler?.kind === 'bili_search'
                     ? {
                         keywords: (cfg.mediacrawler as any).keywords,
                         limit: (cfg.mediacrawler as any).limit,
-                        enableLlm: (cfg.mediacrawler as any).enableLlm
+                        enableLlm: enableLlmEffective
                       }
                     : {}
             },

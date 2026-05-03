@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Notification, dialog, ipcMain } from 'electron'
+import { app, BrowserWindow, Notification, dialog, ipcMain, safeStorage } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -24,6 +24,7 @@ import { createFeedbackCollector } from './feedback'
 import { PythonEnvManager } from './python/PythonEnvManager'
 import { validateMediaCrawlerTaskSpec } from './mediacrawler/mediacrawlerTaskSpec'
 import { resolveMediaCrawlerRoot, resolveRunnerDir, writeTaskJson } from './mediacrawler/mediacrawlerRunner'
+import { getLlmConfigFilePath, loadLlmConfig, saveLlmConfig } from './llm/llmConfig'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -259,8 +260,28 @@ app.whenReady().then(() => {
       const ensured = await envManager.ensureMediacrawlerEnv({ pythonIndexUrl: v.value.pythonIndexUrl })
       if (!ensured.ok) return { success: false as const, error: `${ensured.error}\n${ensured.suggestion}` }
 
-      const { taskJsonPath } = writeTaskJson({ userDataPath, mediaCrawlerRoot, spec: v.value })
       const taskSpecJson = JSON.stringify(v.value)
+      const specForRun = { ...v.value, args: { ...(v.value.args || {}) } }
+      if (specForRun.args.enableLlm === true) {
+        const llm = loadLlmConfig({
+          userDataPath,
+          fs,
+          safeStorage: {
+            isEncryptionAvailable: () => safeStorage.isEncryptionAvailable(),
+            encryptString: (text) => safeStorage.encryptString(text),
+            decryptString: (buf) => safeStorage.decryptString(buf)
+          }
+        })
+        if (llm.apiKey && llm.apiBaseUrl && llm.model) {
+          specForRun.args.llmModel = llm.model
+          specForRun.args.llmBaseUrl = llm.apiBaseUrl
+          specForRun.args.llmApiKey = llm.apiKey
+        } else {
+          specForRun.args.enableLlm = false
+        }
+      }
+
+      const { taskJsonPath } = writeTaskJson({ userDataPath, mediaCrawlerRoot, spec: specForRun })
       const req = {
         runId,
         script: 'run_mediacrawler.py',
@@ -435,6 +456,65 @@ app.whenReady().then(() => {
   ipcMain.handle(ipcChannels.kbSetDefault, async (_evt, id: number) => {
     configsRepo.setDefault(id)
     return { success: true as const }
+  })
+
+  ipcMain.handle(ipcChannels.llmGetConfig, async () => {
+    const res = loadLlmConfig({
+      userDataPath,
+      fs,
+      safeStorage: {
+        isEncryptionAvailable: () => safeStorage.isEncryptionAvailable(),
+        encryptString: (text) => safeStorage.encryptString(text),
+        decryptString: (buf) => safeStorage.decryptString(buf)
+      }
+    })
+    return {
+      apiBaseUrl: res.apiBaseUrl,
+      model: res.model,
+      hasKey: res.hasKey,
+      keyStorage: res.keyStorage,
+      encryptionAvailable: res.encryptionAvailable
+    }
+  })
+
+  ipcMain.handle(ipcChannels.llmSetConfig, async (_evt, input: unknown) => {
+    const o = (input && typeof input === 'object' ? (input as Record<string, unknown>) : null) ?? {}
+    const apiBaseUrl = String(o.apiBaseUrl ?? '').trim()
+    const model = String(o.model ?? '').trim()
+    const apiKey = Object.prototype.hasOwnProperty.call(o, 'apiKey') ? String(o.apiKey ?? '') : undefined
+
+    if (!apiBaseUrl) throw new Error('apiBaseUrl is required')
+    if (!model) throw new Error('model is required')
+
+    if (apiKey === '') {
+      const p = getLlmConfigFilePath(userDataPath)
+      if (fs.existsSync(p)) fs.rmSync(p)
+      return { apiBaseUrl, model, hasKey: false, keyStorage: null, encryptionAvailable: safeStorage.isEncryptionAvailable() }
+    }
+
+    const existing = loadLlmConfig({
+      userDataPath,
+      fs,
+      safeStorage: {
+        isEncryptionAvailable: () => safeStorage.isEncryptionAvailable(),
+        encryptString: (text) => safeStorage.encryptString(text),
+        decryptString: (buf) => safeStorage.decryptString(buf)
+      }
+    })
+    const effectiveKey = apiKey === undefined ? existing.apiKey : apiKey
+    if (!effectiveKey) throw new Error('apiKey is required')
+
+    const snap = saveLlmConfig({
+      userDataPath,
+      fs,
+      safeStorage: {
+        isEncryptionAvailable: () => safeStorage.isEncryptionAvailable(),
+        encryptString: (text) => safeStorage.encryptString(text),
+        decryptString: (buf) => safeStorage.decryptString(buf)
+      },
+      config: { apiBaseUrl, model, apiKey: effectiveKey, allowPlaintextFallback: true }
+    })
+    return snap
   })
 
   ipcMain.handle(ipcChannels.trayGetConfig, async () => {
