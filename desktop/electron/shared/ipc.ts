@@ -16,6 +16,8 @@ export const ipcChannels = {
   kbList: 'kb:list',
   kbSave: 'kb:save',
   kbSetDefault: 'kb:setDefault',
+  llmGetConfig: 'llm:getConfig',
+  llmSetConfig: 'llm:setConfig',
   trayGetConfig: 'tray:getConfig',
   trayUpdateConfig: 'tray:updateConfig',
   appNotify: 'app:notify',
