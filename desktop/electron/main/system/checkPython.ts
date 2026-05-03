@@ -1,8 +1,11 @@
-import { exec as nodeExec } from 'node:child_process'
+import { execFile as nodeExecFile } from 'node:child_process'
+import { promisify } from 'node:util'
 
 export type CheckPythonResult =
   | { ok: true; version: string; bin: string }
   | { ok: false; error: string; suggestion: string; version?: string }
+
+type ExecFile = (bin: string, args: string[]) => Promise<{ stdout: string; stderr: string }>
 
 function pickCandidates(platform: NodeJS.Platform): string[] {
   if (platform === 'win32') return ['python', 'python3']
@@ -31,31 +34,36 @@ function buildSuggestion(args: { platform: NodeJS.Platform; error: string; code?
 
 export async function checkPython(args?: {
   platform?: NodeJS.Platform
-  exec?: (command: string, cb: (error: any, stdout: string, stderr: string) => void) => void
+  execFile?: ExecFile
 }): Promise<CheckPythonResult> {
   const platform = args?.platform ?? process.platform
-  const exec = args?.exec ?? nodeExec
+  const execFile: ExecFile =
+    args?.execFile ??
+    (async (bin, argv) => {
+      const execFileAsync = promisify(nodeExecFile)
+      const { stdout, stderr } = (await execFileAsync(bin, argv)) as any
+      return { stdout: String(stdout ?? ''), stderr: String(stderr ?? '') }
+    })
   const candidates = pickCandidates(platform)
 
   let lastError: { message: string; code?: string } | null = null
   for (const bin of candidates) {
-    const command = `${bin} --version`
-    const r = await new Promise<{ error: any; stdout: string; stderr: string }>((resolve) => {
-      exec(command, (error, stdout, stderr) => resolve({ error, stdout: stdout ?? '', stderr: stderr ?? '' }))
-    })
-
-    const combined = `${r.stdout}\n${r.stderr}`.trim()
-    const version = parsePythonVersion(combined)
-
-    if (!r.error && version) return { ok: true, version, bin }
-    if (r.error && version) return { ok: true, version, bin }
-
-    if (r.error) {
-      lastError = { message: String(r.error?.message ?? r.error ?? 'unknown error'), code: String(r.error?.code ?? '') || undefined }
+    try {
+      const r = await execFile(bin, ['--version'])
+      const combined = `${r.stdout}\n${r.stderr}`.trim()
+      const version = parsePythonVersion(combined)
+      if (version) return { ok: true, version, bin }
+      lastError = { message: combined || 'unable to parse version' }
+    } catch (e) {
+      const err = e as any
+      const stdout = String(err?.stdout ?? '')
+      const stderr = String(err?.stderr ?? '')
+      const combined = `${stdout}\n${stderr}`.trim()
+      const version = parsePythonVersion(combined)
+      if (version) return { ok: true, version, bin }
+      lastError = { message: String(err?.message ?? err ?? 'unknown error'), code: String(err?.code ?? '') || undefined }
       continue
     }
-
-    lastError = { message: combined || 'unable to parse version' }
   }
 
   const error = lastError?.message ?? 'unknown error'

@@ -28,6 +28,7 @@ import { getLlmConfigFilePath, loadLlmConfig, saveLlmConfig } from './llm/llmCon
 import { createLlmClient } from './llm/llmClient'
 import { createAggregateStore } from './aggregate/aggregateStore'
 import { createClusterStore } from './cluster/clusterStore'
+import { assertPathInside } from './fs/pathSafety'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -411,8 +412,12 @@ app.whenReady().then(() => {
     if (path.basename(name) !== name) return { success: false as const, error: 'invalid name' }
 
     const runDir = path.join(userDataPath, 'results', 'runs', runId)
-    const p = path.join(runDir, name)
-    if (!p.startsWith(runDir + path.sep)) return { success: false as const, error: 'invalid path' }
+    let p = path.join(runDir, name)
+    try {
+      p = assertPathInside(runDir, p)
+    } catch {
+      return { success: false as const, error: 'invalid path' }
+    }
 
     try {
       const st = fs.statSync(p)
