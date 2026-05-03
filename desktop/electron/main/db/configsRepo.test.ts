@@ -6,8 +6,27 @@ import { createDbForTest, initDb } from './index'
 import { createConfigsRepo } from './configsRepo'
 
 let tmpFile: string | null = null
+let dbToClose: { close: () => void } | null = null
+const sleepArray = new Int32Array(new SharedArrayBuffer(4))
+
+function unlinkWithRetry(filePath: string) {
+  for (let i = 0; i < 8; i += 1) {
+    try {
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath)
+      return
+    } catch (e) {
+      if (i >= 7) throw e
+      Atomics.wait(sleepArray, 0, 0, 50)
+    }
+  }
+}
+
 afterEach(() => {
-  if (tmpFile && fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile)
+  try {
+    dbToClose?.close()
+  } catch {}
+  dbToClose = null
+  if (tmpFile) unlinkWithRetry(tmpFile)
   tmpFile = null
 })
 
@@ -15,6 +34,7 @@ function createDb() {
   tmpFile = path.join(os.tmpdir(), `omni-${Date.now()}-${Math.random()}.db`)
   const db = createDbForTest(tmpFile)
   initDb(db)
+  dbToClose = db as any
   return db
 }
 

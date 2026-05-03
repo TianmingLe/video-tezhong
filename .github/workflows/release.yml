@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -46,16 +47,8 @@ jobs:
         working-directory: desktop
         run: npm run typecheck
 
-      - name: Build distributables (unsigned)
+      - name: Build distributables
         working-directory: desktop
-        if: ${{ secrets.CSC_LINK == '' && secrets.WIN_CSC_LINK == '' && secrets.APPLE_ID == '' && secrets.APPLE_APP_SPECIFIC_PASSWORD == '' && secrets.APPLE_TEAM_ID == '' }}
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: npm run dist
-
-      - name: Build distributables (signed)
-        working-directory: desktop
-        if: ${{ !(secrets.CSC_LINK == '' && secrets.WIN_CSC_LINK == '' && secrets.APPLE_ID == '' && secrets.APPLE_APP_SPECIFIC_PASSWORD == '' && secrets.APPLE_TEAM_ID == '') }}
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
           CSC_LINK: ${{ secrets.CSC_LINK }}
