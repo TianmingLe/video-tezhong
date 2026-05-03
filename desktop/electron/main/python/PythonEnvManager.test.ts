@@ -28,7 +28,7 @@ describe('PythonEnvManager', () => {
     if (!res.ok) throw new Error('expected ok')
 
     const venvPath = path.join(root, 'python', 'mediacrawler-venv')
-    const venvPython = path.join(venvPath, 'bin', 'python')
+    const venvPython = process.platform === 'win32' ? path.join(venvPath, 'Scripts', 'python.exe') : path.join(venvPath, 'bin', 'python')
 
     expect(res.pythonBin).toBe(venvPython)
     expect(calls[0]).toMatchObject({ bin: 'python3', args: ['-m', 'venv', venvPath] })
@@ -40,4 +40,3 @@ describe('PythonEnvManager', () => {
     expect(marker).toMatch(/pythonVersion/)
   })
 })
-

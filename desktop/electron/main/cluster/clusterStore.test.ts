@@ -4,42 +4,48 @@ import { createClusterStore, type ClusterStoreFs } from './clusterStore'
 function createMemFs(): ClusterStoreFs & { files: Map<string, string>; dirs: Set<string> } {
   const files = new Map<string, string>()
   const dirs = new Set<string>()
+  const norm = (p: string) => String(p || '').replace(/\\/g, '/')
   return {
     files,
     dirs,
-    existsSync: (p) => files.has(p) || dirs.has(p),
+    existsSync: (p) => {
+      const pp = norm(p)
+      return files.has(pp) || dirs.has(pp)
+    },
     mkdirSync: (p, _opts) => {
-      dirs.add(p)
+      dirs.add(norm(p))
     },
     readdirSync: (p) => {
+      const pp = norm(p)
       const out: string[] = []
       for (const d of dirs) {
-        if (d.startsWith(p + '/')) {
-          const rest = d.slice(p.length + 1)
+        if (d.startsWith(pp + '/')) {
+          const rest = d.slice(pp.length + 1)
           if (!rest.includes('/')) out.push(rest)
         }
       }
       return out
     },
-    statSync: (p) => ({ isDirectory: () => dirs.has(p), mtimeMs: 1 } as any),
+    statSync: (p) => ({ isDirectory: () => dirs.has(norm(p)), mtimeMs: 1 } as any),
     writeFileSync: (p, data, _enc) => {
-      files.set(p, String(data))
+      files.set(norm(p), String(data))
     },
     readFileSync: (p, _enc) => {
-      const v = files.get(p)
+      const v = files.get(norm(p))
       if (v == null) throw new Error('ENOENT')
       return v
     },
     rmSync: (p) => {
-      files.delete(p)
-      dirs.delete(p)
-      for (const k of [...files.keys()]) if (k.startsWith(p + '/')) files.delete(k)
-      for (const d of [...dirs]) if (d.startsWith(p + '/')) dirs.delete(d)
+      const pp = norm(p)
+      files.delete(pp)
+      dirs.delete(pp)
+      for (const k of [...files.keys()]) if (k.startsWith(pp + '/')) files.delete(k)
+      for (const d of [...dirs]) if (d.startsWith(pp + '/')) dirs.delete(d)
     },
     copyFileSync: (src, dst) => {
-      const v = files.get(src)
+      const v = files.get(norm(src))
       if (v == null) throw new Error('ENOENT')
-      files.set(dst, v)
+      files.set(norm(dst), v)
     }
   }
 }
@@ -55,4 +61,3 @@ describe('clusterStore', () => {
     expect(store.list().length).toBe(0)
   })
 })
-
