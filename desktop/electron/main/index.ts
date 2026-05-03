@@ -487,9 +487,17 @@ app.whenReady().then(() => {
     if (!model) throw new Error('model is required')
 
     if (apiKey === '') {
-      const p = getLlmConfigFilePath(userDataPath)
-      if (fs.existsSync(p)) fs.rmSync(p)
-      return { apiBaseUrl, model, hasKey: false, keyStorage: null, encryptionAvailable: safeStorage.isEncryptionAvailable() }
+      const snap = saveLlmConfig({
+        userDataPath,
+        fs,
+        safeStorage: {
+          isEncryptionAvailable: () => safeStorage.isEncryptionAvailable(),
+          encryptString: (text) => safeStorage.encryptString(text),
+          decryptString: (buf) => safeStorage.decryptString(buf)
+        },
+        config: { apiBaseUrl, model, apiKey: '', allowPlaintextFallback: true }
+      })
+      return snap
     }
 
     const existing = loadLlmConfig({

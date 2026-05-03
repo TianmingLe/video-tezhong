@@ -42,6 +42,31 @@ def _copy_first_md(run_dir: Path) -> None:
         return
 
 
+def _copy_analysis_json(run_dir: Path) -> None:
+    runs_dir = run_dir / "results" / "runs"
+    if not runs_dir.exists():
+        return
+    run_dirs = [p for p in runs_dir.iterdir() if p.is_dir()]
+    if not run_dirs:
+        return
+    run_dirs.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    newest = run_dirs[0]
+    files = list(newest.glob("mvp_analysis_*.json"))
+    files.sort()
+    if not files:
+        return
+    copied = 0
+    for src in files[:50]:
+        dst = run_dir / src.name
+        try:
+            shutil.copyfile(src, dst)
+            copied += 1
+        except Exception:
+            continue
+    if copied:
+        print(f"[OMNI] analysis_copied={copied}")
+
+
 def main() -> int:
     task_json_path = _pick_task_json(sys.argv[1:])
     task = json.loads(Path(task_json_path).read_text(encoding="utf-8"))
@@ -128,6 +153,7 @@ def main() -> int:
     code = proc.wait()
     _write_event(events_path, {"ts": int(time.time() * 1000), "type": "exit", "code": code})
 
+    _copy_analysis_json(run_dir_p)
     _copy_first_md(run_dir_p)
 
     return int(code or 0)

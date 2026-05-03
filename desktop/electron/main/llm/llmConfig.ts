@@ -56,6 +56,7 @@ export function loadLlmConfig(args: { userDataPath: string; fs: LlmConfigFs; saf
       const plain = String((parsed as any)?.apiKeyPlain ?? '')
       apiKey = plain || null
     }
+    if (!apiKey) apiKey = null
 
     return { apiBaseUrl, model, apiKey, hasKey: Boolean(apiKey), keyStorage, encryptionAvailable }
   } catch {
@@ -93,4 +94,3 @@ export function saveLlmConfig(args: {
   args.fs.writeFileSync(filePath, JSON.stringify(file, null, 2), 'utf-8')
   return { apiBaseUrl, model, hasKey: Boolean(apiKey), keyStorage: file.keyStorage, encryptionAvailable }
 }
-
