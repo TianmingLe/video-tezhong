@@ -5,12 +5,20 @@ import { RetryButton } from '../components/RetryButton'
 import { useDbState } from '../contexts/DbStateContext'
 import { toastStore } from '../components/toast/toastStore'
 import { copyText } from '../features/feedback/copyText'
+import { llmConfigSchema } from '../features/llm/llmConfigSchema'
 
 export function SettingsPage() {
   const navigate = useNavigate()
   const { isReadOnly } = useDbState()
   const isWindows = typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent)
   const [trayConfig, setTrayConfig] = useState<TrayConfig | null>(null)
+  const [llmApiBaseUrl, setLlmApiBaseUrl] = useState('')
+  const [llmModel, setLlmModel] = useState('')
+  const [llmApiKey, setLlmApiKey] = useState('')
+  const [llmHasKey, setLlmHasKey] = useState(false)
+  const [llmEncryptionAvailable, setLlmEncryptionAvailable] = useState(false)
+  const [llmKeyStorage, setLlmKeyStorage] = useState<'safeStorage' | 'plain' | null>(null)
+  const [llmLoading, setLlmLoading] = useState(false)
   const [kbConfigs, setKbConfigs] = useState<ConfigRecord[]>([])
   const [kbLoading, setKbLoading] = useState(true)
   const [kbError, setKbError] = useState<{ message: string; retry: () => Promise<void> } | null>(null)
@@ -27,6 +35,29 @@ export function SettingsPage() {
       if (cancelled) return
       setTrayConfig(cfg)
     })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    setLlmLoading(true)
+    window.api.llm
+      .getConfig()
+      .then((cfg) => {
+        if (cancelled) return
+        setLlmApiBaseUrl(cfg.apiBaseUrl || '')
+        setLlmModel(cfg.model || '')
+        setLlmHasKey(Boolean(cfg.hasKey))
+        setLlmEncryptionAvailable(Boolean(cfg.encryptionAvailable))
+        setLlmKeyStorage(cfg.keyStorage ?? null)
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (cancelled) return
+        setLlmLoading(false)
+      })
     return () => {
       cancelled = true
     }
@@ -225,6 +256,60 @@ export function SettingsPage() {
     }
   }
 
+  const saveLlm = async () => {
+    if (llmLoading) return
+    const parsed = llmConfigSchema.safeParse({ apiBaseUrl: llmApiBaseUrl, model: llmModel, apiKey: llmApiKey || undefined })
+    if (!parsed.success) {
+      toastStore.show({ title: 'LLM', message: '请填写 Base URL / Model' })
+      return
+    }
+    if (!llmHasKey && !llmApiKey) {
+      toastStore.show({ title: 'LLM', message: '请填写 API Key' })
+      return
+    }
+    const toastId = toastStore.show({ title: 'LLM', message: '正在保存…' })
+    setLlmLoading(true)
+    try {
+      const res = await window.api.llm.setConfig({ apiBaseUrl: parsed.data.apiBaseUrl, model: parsed.data.model, apiKey: parsed.data.apiKey })
+      toastStore.dismiss(toastId)
+      setLlmHasKey(Boolean(res.hasKey))
+      setLlmEncryptionAvailable(Boolean(res.encryptionAvailable))
+      setLlmKeyStorage(res.keyStorage ?? null)
+      setLlmApiKey('')
+      toastStore.show({ title: 'LLM', message: '已保存' })
+    } catch (e) {
+      toastStore.dismiss(toastId)
+      toastStore.show({ title: 'LLM', message: `保存失败：${String((e as Error)?.message || e)}` })
+    } finally {
+      setLlmLoading(false)
+    }
+  }
+
+  const clearLlmKey = async () => {
+    const ok = window.confirm('将清除已保存的 API Key，是否继续？')
+    if (!ok) return
+    if (!llmApiBaseUrl.trim() || !llmModel.trim()) {
+      toastStore.show({ title: 'LLM', message: '请先填写 Base URL / Model' })
+      return
+    }
+    const toastId = toastStore.show({ title: 'LLM', message: '正在清除…' })
+    setLlmLoading(true)
+    try {
+      const res = await window.api.llm.setConfig({ apiBaseUrl: llmApiBaseUrl, model: llmModel, apiKey: '' })
+      toastStore.dismiss(toastId)
+      setLlmHasKey(Boolean(res.hasKey))
+      setLlmEncryptionAvailable(Boolean(res.encryptionAvailable))
+      setLlmKeyStorage(res.keyStorage ?? null)
+      setLlmApiKey('')
+      toastStore.show({ title: 'LLM', message: '已清除' })
+    } catch (e) {
+      toastStore.dismiss(toastId)
+      toastStore.show({ title: 'LLM', message: `清除失败：${String((e as Error)?.message || e)}` })
+    } finally {
+      setLlmLoading(false)
+    }
+  }
+
   return (
     <div className="page">
       <h1 className="page-title">设置</h1>
@@ -260,6 +345,48 @@ export function SettingsPage() {
           <button type="button" className="btn" onClick={cleanupOldLogs}>
             清理旧日志
           </button>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 16, maxWidth: 520 }}>
+        <div className="row">
+          <div className="label">LLM</div>
+          <div className="muted" style={{ marginTop: 6 }}>
+            加密存储：{llmEncryptionAvailable ? '可用' : '不可用'} · Key：{llmHasKey ? '已保存' : '未保存'}{' '}
+            {llmKeyStorage ? `· 存储：${llmKeyStorage}` : ''}
+          </div>
+        </div>
+        <div className="row">
+          <div className="label">Base URL</div>
+          <input className="input" value={llmApiBaseUrl} onChange={(e) => setLlmApiBaseUrl(e.target.value)} disabled={llmLoading} />
+        </div>
+        <div className="row">
+          <div className="label">Model</div>
+          <input className="input" value={llmModel} onChange={(e) => setLlmModel(e.target.value)} disabled={llmLoading} />
+        </div>
+        <div className="row">
+          <div className="label">API Key</div>
+          <input
+            className="input"
+            type="password"
+            placeholder={llmHasKey ? '已保存（留空不修改）' : ''}
+            value={llmApiKey}
+            onChange={(e) => setLlmApiKey(e.target.value)}
+            disabled={llmLoading}
+          />
+        </div>
+        <div className="row" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button type="button" className="btn" onClick={saveLlm} disabled={llmLoading}>
+            保存
+          </button>
+          <button type="button" className="btn" onClick={clearLlmKey} disabled={llmLoading || !llmHasKey}>
+            清除 Key
+          </button>
+          {isReadOnly ? (
+            <div className="muted" style={{ marginLeft: 'auto' }}>
+              数据库只读不影响 LLM 配置
+            </div>
+          ) : null}
         </div>
       </div>
 

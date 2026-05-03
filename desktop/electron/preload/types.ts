@@ -102,7 +102,7 @@ export type DesktopApi = {
   }
   llm: {
     getConfig: () => Promise<LlmConfigView>
-    setConfig: (input: { apiBaseUrl: string; model: string; apiKey: string }) => Promise<LlmConfigView>
+    setConfig: (input: { apiBaseUrl: string; model: string; apiKey?: string }) => Promise<LlmConfigView>
   }
   kb: {
     list: () => Promise<ConfigRecord[]>

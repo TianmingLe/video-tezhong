@@ -461,16 +461,28 @@ app.whenReady().then(() => {
     const o = (input && typeof input === 'object' ? (input as Record<string, unknown>) : null) ?? {}
     const apiBaseUrl = String(o.apiBaseUrl ?? '').trim()
     const model = String(o.model ?? '').trim()
-    const apiKey = String(o.apiKey ?? '')
+    const apiKey = Object.prototype.hasOwnProperty.call(o, 'apiKey') ? String(o.apiKey ?? '') : undefined
 
     if (!apiBaseUrl) throw new Error('apiBaseUrl is required')
     if (!model) throw new Error('model is required')
 
-    if (!apiKey) {
+    if (apiKey === '') {
       const p = getLlmConfigFilePath(userDataPath)
       if (fs.existsSync(p)) fs.rmSync(p)
       return { apiBaseUrl, model, hasKey: false, keyStorage: null, encryptionAvailable: safeStorage.isEncryptionAvailable() }
     }
+
+    const existing = loadLlmConfig({
+      userDataPath,
+      fs,
+      safeStorage: {
+        isEncryptionAvailable: () => safeStorage.isEncryptionAvailable(),
+        encryptString: (text) => safeStorage.encryptString(text),
+        decryptString: (buf) => safeStorage.decryptString(buf)
+      }
+    })
+    const effectiveKey = apiKey === undefined ? existing.apiKey : apiKey
+    if (!effectiveKey) throw new Error('apiKey is required')
 
     const snap = saveLlmConfig({
       userDataPath,
@@ -480,7 +492,7 @@ app.whenReady().then(() => {
         encryptString: (text) => safeStorage.encryptString(text),
         decryptString: (buf) => safeStorage.decryptString(buf)
       },
-      config: { apiBaseUrl, model, apiKey, allowPlaintextFallback: true }
+      config: { apiBaseUrl, model, apiKey: effectiveKey, allowPlaintextFallback: true }
     })
     return snap
   })
