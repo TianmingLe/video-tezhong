@@ -3,6 +3,9 @@ name: E2E
 on:
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   linux-e2e:
     name: Linux E2E (manual)
@@ -33,4 +36,3 @@ jobs:
       - name: Run e2e (desktop)
         working-directory: desktop
         run: xvfb-run -a npm run test:e2e
-
