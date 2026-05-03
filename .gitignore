@@ -1,2 +1,4 @@
 desktop/release/
 desktop/release/**
+.superpowers/
+.superpowers/**
