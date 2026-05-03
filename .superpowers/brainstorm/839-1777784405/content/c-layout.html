@@ -1,0 +1,94 @@
+<h2>C：聚类/筛选页面布局</h2>
+<p class="subtitle">选择一个你更顺手的布局，用于“问题/关键词 → 4档相关性 → 主题聚类 → 导出/删除”。</p>
+
+<div class="cards" data-multiselect="false" style="margin-top:16px">
+  <div class="card" data-choice="split" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:18px">
+      <div style="display:grid;grid-template-columns:1.1fr 1fr;gap:14px">
+        <div style="border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px">
+          <div style="font-size:12px;opacity:.7">输入区</div>
+          <div style="height:10px"></div>
+          <div style="height:10px;background:rgba(255,255,255,.08);border-radius:6px"></div>
+          <div style="height:8px"></div>
+          <div style="height:10px;background:rgba(255,255,255,.06);border-radius:6px;width:70%"></div>
+          <div style="height:12px"></div>
+          <div style="display:flex;gap:8px">
+            <div style="height:26px;width:90px;background:rgba(255,255,255,.10);border-radius:7px"></div>
+            <div style="height:26px;width:90px;background:rgba(255,255,255,.06);border-radius:7px"></div>
+          </div>
+          <div style="height:12px"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <div style="height:18px;width:52px;background:rgba(255,255,255,.06);border-radius:999px"></div>
+            <div style="height:18px;width:74px;background:rgba(255,255,255,.06);border-radius:999px"></div>
+            <div style="height:18px;width:66px;background:rgba(255,255,255,.06);border-radius:999px"></div>
+          </div>
+        </div>
+        <div style="border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px">
+          <div style="font-size:12px;opacity:.7">结果区</div>
+          <div style="height:10px"></div>
+          <div style="height:10px;background:rgba(255,255,255,.08);border-radius:6px;width:90%"></div>
+          <div style="height:8px"></div>
+          <div style="height:10px;background:rgba(255,255,255,.06);border-radius:6px;width:82%"></div>
+          <div style="height:8px"></div>
+          <div style="height:10px;background:rgba(255,255,255,.06);border-radius:6px;width:74%"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Split View（推荐）</h3>
+      <p>左侧输入与 run 选择，右侧实时展示“4档 + 主题簇 + 视频汇总”。适合反复改关键词快速迭代。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="tabs" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:18px">
+      <div style="border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px">
+        <div style="display:flex;gap:8px">
+          <div style="height:18px;width:80px;background:rgba(255,255,255,.10);border-radius:999px"></div>
+          <div style="height:18px;width:80px;background:rgba(255,255,255,.06);border-radius:999px"></div>
+          <div style="height:18px;width:80px;background:rgba(255,255,255,.06);border-radius:999px"></div>
+        </div>
+        <div style="height:12px"></div>
+        <div style="height:10px;background:rgba(255,255,255,.08);border-radius:6px;width:92%"></div>
+        <div style="height:8px"></div>
+        <div style="height:10px;background:rgba(255,255,255,.06);border-radius:6px;width:86%"></div>
+        <div style="height:8px"></div>
+        <div style="height:10px;background:rgba(255,255,255,.06);border-radius:6px;width:78%"></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Tabs View</h3>
+      <p>顶部是输入区，下面用 Tab 切换：概览 / 主题簇 / 知识点明细 / 视频明细。更整洁但切换更频繁。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="wizard" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:18px">
+      <div style="border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px">
+        <div style="display:flex;gap:10px;align-items:center">
+          <div style="height:18px;width:18px;background:rgba(255,255,255,.10);border-radius:999px"></div>
+          <div style="height:10px;background:rgba(255,255,255,.06);border-radius:6px;flex:1"></div>
+        </div>
+        <div style="height:10px"></div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <div style="height:18px;width:18px;background:rgba(255,255,255,.10);border-radius:999px"></div>
+          <div style="height:10px;background:rgba(255,255,255,.06);border-radius:6px;flex:1"></div>
+        </div>
+        <div style="height:10px"></div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <div style="height:18px;width:18px;background:rgba(255,255,255,.10);border-radius:999px"></div>
+          <div style="height:10px;background:rgba(255,255,255,.06);border-radius:6px;flex:1"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Wizard</h3>
+      <p>分步骤：选 runs → 填问题/关键词 → 运行 → 预览导出。更适合新手，但迭代调参更慢。</p>
+    </div>
+  </div>
+</div>
+
+<div class="muted" style="margin-top:12px">
+  点击卡片选择一个布局，然后回到聊天告诉我你选了哪个（split / tabs / wizard）。
+</div>
+
