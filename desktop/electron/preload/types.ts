@@ -80,6 +80,11 @@ export type LlmConfigView = {
   encryptionAvailable: boolean
 }
 
+export type AggregateSaved = { dirName: string; dirPath: string; files: string[] }
+export type AggregateListItem = { dirName: string; dirPath: string; mtimeMs: number }
+export type AggregateDeleteResult = { success: true } | { success: false; error: string }
+export type AggregateExportResult = { success: true; dirPath: string } | { success: false; error: string }
+
 export type DesktopApi = {
   version: string
   onboarding: {
@@ -103,6 +108,13 @@ export type DesktopApi = {
   llm: {
     getConfig: () => Promise<LlmConfigView>
     setConfig: (input: { apiBaseUrl: string; model: string; apiKey?: string }) => Promise<LlmConfigView>
+  }
+  aggregate: {
+    save: (input: { runs: string[]; files: Record<string, string> }) => Promise<AggregateSaved>
+    list: () => Promise<AggregateListItem[]>
+    readFile: (input: { dirName: string; name: string; maxBytes?: number }) => Promise<{ success: true; text: string } | { success: false; error: string }>
+    delete: (input: { dirName: string; names?: string[] }) => Promise<AggregateDeleteResult>
+    export: (input: { dirName: string; names: string[] }) => Promise<AggregateExportResult>
   }
   kb: {
     list: () => Promise<ConfigRecord[]>
