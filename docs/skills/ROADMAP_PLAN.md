@@ -144,7 +144,7 @@
 ### 阶段 2：中期（2–6 个月）——"规模化能力：多平台、多导出、LLM 分析闭环" ✅ 已完成
 
 #### MediaCrawler（规模化） ✅
-- ~~代理池与账号池的可观测性~~ → 基础框架就绪，待接入 metrics
+- ~~代理池与账号池的可观测性~~ → `proxy_health_monitor.py` + `metrics_reporter.py` 已实现
 - ~~存储的统一抽象~~ → 已支持 CSV/JSON/JSONL/SQLite/MySQL/MongoDB/Excel
 
 #### LLM / 处理链路（价值提升） ✅
@@ -170,7 +170,7 @@
 ### 4.1 Desktop：稳定性与体验
 - [x] 增加 About/Version 页面（version、commit hash、nightly 标识）
 - [x] 手工回归 checklist 固化到 release runbook，并在发版前强制执行
-- [ ] 更细粒度的错误分类（用户可读 + 开发可定位）
+- [x] 更细粒度的错误分类（用户可读 + 开发可定位）→ `ErrorClassifier.ts` + `ErrorMessage.tsx` + `ErrorBoundary.tsx`
 - [x] 任务模板/预设（减少用户配置成本）
 
 ### 4.2 Desktop：发布与更新
@@ -181,7 +181,7 @@
 ### 4.3 MediaCrawler：批处理与稳定输出
 - [x] 统一输出 schema（JSONL），包含 run_id、platform、source、timestamps、errors
 - [x] 批处理 search + limit、失败不中断策略
-- [ ] 代理池健康检查与可观测指标（成功率、失败原因）
+- [x] 代理池健康检查与可观测指标（成功率、失败原因）→ `proxy_health_monitor.py` + `metrics_reporter.py`
 
 ### 4.4 Desktop ↔ MediaCrawler：协议与打通
 - [x] 定义子进程协议（stdout 事件：progress/log/result/error）
@@ -190,7 +190,7 @@
 
 ### 4.5 文档与流程（持续）
 - [x] 文档版本化：USER_MANUAL / TROUBLESHOOTING / LESSONS_LEARNED / ROADMAP 持续更新
-- [ ] 将"典型故障"整理为 FAQ + 自动化检测（如 Python 不存在、路径不可写）
+- [x] 将"典型故障"整理为 FAQ + 自动化检测（如 Python 不存在、路径不可写）→ `docs/FAQ.md` + `diagnose.py` + `diagnose_desktop.js`
 
 ---
 
