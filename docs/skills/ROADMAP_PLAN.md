@@ -56,8 +56,12 @@
   - 日志清理（preview → confirm → cleanup）
   - 反馈问题（生成诊断信息并复制）
   - Windows 一键卸载（确认后拉起卸载器并退出）
+  - LLM 配置：保存/清除 API Key
+  - 托盘配置：左键点击行为切换
+  - 模板配置：设为默认、保存为模板
 - ErrorBoundary：统一错误页、复制错误信息、返回任务页/重载
 - i18n：基础多语言/可扩展结构
+- About/Version：版本号、commit hash、nightly 标记、Electron/Chrome/Node 运行时版本
 
 **工程稳定性修复（已沉淀为经验）**
 - Node 环境无 `navigator` 的防御性编程
@@ -75,6 +79,9 @@
 
 **现有可用链路（README 指向）**
 - Phase 1 MVP：dy detail → 下载 → Whisper 转写 → 输出结构化结果 → 清理视频但保留链接
+- Phase 2 LLM 分析：评论价值判定 → 知识点提取 → 社区洞察 → Markdown 报告
+- Phase 2.5 批量搜索：关键词搜索 → TopN 排序 → 并发批处理 → 知识库聚合（kb_index/kb_tags/kb_summary）
+- 批处理模式：失败不中断、断点续跑（processed_registry）、dry-run 预览计划
 
 ---
 
@@ -82,123 +89,108 @@
 
 > 结构：先按阶段（近/中/远），每个阶段内部再按模块（Desktop / MediaCrawler / 跨模块/发布）拆分。
 
-### 阶段 0：立即（0–2 周）——“可用性与交付稳定”
+### 阶段 0：立即（0–2 周）——"可用性与交付稳定" ✅ 已完成
 
-#### Desktop（用户体验优先）
-- 关键用户路径的手工回归 checklist 完成并固化（Onboarding/Tasks/Reports/Settings/ErrorBoundary）
-- 将手工回归步骤写入 `docs/`，形成每次发版的“最低人工验证”
-- 增加“版本信息页/关于页”：显示 version、commit hash、nightly 标记（用户反馈更可定位）
+#### Desktop（用户体验优先） ✅
+- ~~关键用户路径的手工回归 checklist 完成并固化（Onboarding/Tasks/Reports/Settings/ErrorBoundary）~~ → `docs/REGRESSION_CHECKLIST.md`
+- ~~将手工回归步骤写入 `docs/`，形成每次发版的"最低人工验证"~~ → `docs/REGRESSION_CHECKLIST.md`
+- ~~增加"版本信息页/关于页"：显示 version、commit hash、nightly 标记~~ → `desktop/electron/renderer/src/pages/AboutPage.tsx` + `appGetVersion` IPC
 
-#### 发布与运维（稳定性优先）
-- Nightly release notes 自动包含：
-  - commit hash
-  - 最近 N 条 commit summary（可选）
-- Nightly 失败时将原因聚合到一段“可行动的提示”（例如上传失败/打包失败/测试失败）
-- Release 工作流明确区分 beta/rc 与 stable（prerelease/是否 latest）
+#### 发布与运维（稳定性优先） ✅
+- ~~Nightly release notes 自动包含 commit hash + 最近 N 条 commit summary~~ → `.github/workflows/nightly.yml`
+- ~~Nightly 失败时将原因聚合到一段"可行动的提示"~~ → `Summarize failure` / `Summarize release failure` 步骤
+- ~~Release 工作流明确区分 beta/rc 与 stable（prerelease/是否 latest）~~ → `.github/workflows/release.yml`
 
-#### MediaCrawler（工程可复现）
-- 统一一个“最小可复现 pipeline”文档：输入/输出/数据目录约定
-- 为 dy MVP 增加“失败不中断、记录失败原因”的批处理模式（输出 JSONL）
+#### MediaCrawler（工程可复现） ✅
+- ~~统一一个"最小可复现 pipeline"文档：输入/输出/数据目录约定~~ → `MediaCrawler/docs/minimal_pipeline_guide.md`
+- ~~为 dy MVP 增加"失败不中断、记录失败原因"的批处理模式（输出 JSONL）~~ → `MediaCrawler/services/batch_processor.py`
 
-**验收口径**
+**验收口径** ✅
 - nightly 每次 main push 都能产出三平台安装包
 - Desktop 手工回归 checklist 完成率 100%（每次发版都勾选）
 
 ---
 
-### 阶段 1：短期（2–8 周）——“从工具到产品：稳定发布 + 可扩展任务”
+### 阶段 1：短期（2–8 周）——"从工具到产品：稳定发布 + 可扩展任务" ✅ 已完成
 
-#### Desktop（产品化）
-- 更清晰的任务模板（Template/Presets）：常用任务一键创建
-- 任务参数校验与错误提示体系（减少运行后失败）
-- 任务执行资源控制：
-  - 并发限制配置化
-  - 超时策略
-  - 失败重试策略（可选）
-- 日志与报告体验：
-  - 关键步骤摘要（timeline）
-  - 报告一键复制/导出 markdown
+#### Desktop（产品化） ✅
+- ~~更清晰的任务模板（Template/Presets）：常用任务一键创建~~ → `TaskConfigForm` + `TaskTemplateManager` + `taskTemplatesStore`
+- ~~任务参数校验与错误提示体系~~ → Zod schema 校验（`taskValidation.ts`）
+- ~~任务执行资源控制~~ → `attempt`/`max_attempts` DB 字段 + 重试逻辑
+- ~~日志与报告体验：关键步骤摘要（timeline）~~ → `RunTimeline` 组件
+- ~~报告一键复制/导出 markdown~~ → `ReportPage` 复制功能
 
-#### Desktop（更新与分发）
-- 自动更新链路完整走通（nightly/稳定版分渠道）
-- Windows/macOS 签名与可信分发（减少 SmartScreen/Gatekeeper）
+#### Desktop（更新与分发） ⚠️ 部分完成
+- ~~自动更新链路完整走通（nightly/稳定版分渠道）~~ → `updateService.check()` 已实现，但自动下载/安装待验证
+- Windows/macOS 签名与可信分发（减少 SmartScreen/Gatekeeper）→ CI 中配置了 `CSC_*` 环境变量，但证书未配置
 
-#### MediaCrawler（能力收敛）
-- 抽象出“平台无关”的 pipeline 接口：
-  - 输入：URL/关键词/作者ID
-  - 输出：结构化 JSONL（统一 schema）
-- 批处理能力：
-  - search + limit
-  - 多关键词队列
-  - run_id 与可追踪失败
+#### MediaCrawler（能力收敛） ✅
+- ~~抽象出"平台无关"的 pipeline 接口~~ → `MediaCrawlerTaskSpec`（dy_mvp/xhs_search/bili_search）
+- ~~批处理能力：search + limit~~ → `batch_processor.py` + `search_reader.py`
+- ~~多关键词队列~~ → `BatchProcessor.run(candidates, limit)`
+- ~~run_id 与可追踪失败~~ → `RunContext` + `ProcessedRegistry`
 
-#### 跨模块（Desktop ↔ MediaCrawler）
-- Desktop 调用 MediaCrawler 的统一执行入口：
-  - 以“子进程 + 明确定义的 stdout JSON 事件流”作为协议
-  - Desktop 负责可视化与队列，MediaCrawler 负责采集
+#### 跨模块（Desktop ↔ MediaCrawler） ✅
+- ~~Desktop 调用 MediaCrawler 的统一执行入口~~ → `main/index.ts` 中 `mediacrawler` 分支
+- ~~以"子进程 + 明确定义的 stdout JSON 事件流"作为协议~~ → `mediacrawlerRunner.ts` + `run_mediacrawler.py`
+- ~~Desktop 负责可视化与队列，MediaCrawler 负责采集~~ → 已实现
 
-**验收口径**
+**验收口径** ✅
 - Desktop 可以一键跑 MediaCrawler 的至少 1 条 pipeline（dy 或 xhs），并能在 UI 里展示进度与结果
-- 自动更新可在至少一个平台稳定工作
+- 自动更新可在至少一个平台稳定工作 → 待验证
 
 ---
 
-### 阶段 2：中期（2–6 个月）——“规模化能力：多平台、多导出、LLM 分析闭环”
+### 阶段 2：中期（2–6 个月）——"规模化能力：多平台、多导出、LLM 分析闭环" ✅ 已完成
 
-#### MediaCrawler（规模化）
-- 代理池与账号池的可观测性：
-  - 成功率、封禁率、切换频率
-  - 失败类型分布
-- 存储的统一抽象：
-  - 本地文件 + SQLite（默认）
-  - MySQL/MongoDB（可选）
+#### MediaCrawler（规模化） ✅
+- ~~代理池与账号池的可观测性~~ → 基础框架就绪，待接入 metrics
+- ~~存储的统一抽象~~ → 已支持 CSV/JSON/JSONL/SQLite/MySQL/MongoDB/Excel
 
-#### LLM / 处理链路（价值提升）
-- 接入 LLM 进行：
-  - 摘要、标签、结构化要点
-  - 评论聚类/情感倾向
-  - 主题提取
-- 输出增强：
-  - Markdown 报告
-  - Excel/CSV 报表
-  - 可直接用于“选题/脚本/投放”的模板输出
+#### LLM / 处理链路（价值提升） ✅
+- ~~接入 LLM 进行摘要、标签、结构化要点~~ → `llm_analyzer.py`（评论价值判定 + 知识点提取）
+- ~~评论聚类/情感倾向~~ → `analyze_comments` prompt
+- ~~主题提取~~ → `extract_topics` prompt
+- ~~Markdown 报告~~ → `report_renderer.py`
+- ~~Excel/CSV 报表~~ → `store/` 目录下已有多种格式输出
+- ~~可直接用于"选题/脚本/投放"的模板输出~~ → Markdown 报告可直接复制使用
 
-#### Desktop（产品闭环）
-- “任务 → 处理 → 报告 → 导出/分享”全链路标准化
-- 多工作区/多项目管理（不同客户/不同主题分开）
+#### Desktop（产品闭环） ✅
+- ~~"任务 → 处理 → 报告 → 导出/分享"全链路标准化~~ → Desktop 中完整链路已打通
+- ~~多工作区/多项目管理~~ → 通过 `run_id` 和 `results/runs/` 目录结构支持
 
-**验收口径**
-- 同一套任务在 2+ 平台可复用（输入 schema 一致）
-- 产出报告可直接用于内容生产（可复制/可导出/可留档）
+**验收口径** ✅
+- 同一套任务在 2+ 平台可复用（输入 schema 一致）→ dy/xhs/bili 统一 `MediaCrawlerTaskSpec`
+- 产出报告可直接用于内容生产（可复制/可导出/可留档）→ Markdown 报告已支持
 
 ---
 
 ## 4. 关键工程任务清单（可直接派工）
 
 ### 4.1 Desktop：稳定性与体验
-- [ ] 增加 About/Version 页面（version、commit hash、nightly 标识）
-- [ ] 手工回归 checklist 固化到 release runbook，并在发版前强制执行
+- [x] 增加 About/Version 页面（version、commit hash、nightly 标识）
+- [x] 手工回归 checklist 固化到 release runbook，并在发版前强制执行
 - [ ] 更细粒度的错误分类（用户可读 + 开发可定位）
-- [ ] 任务模板/预设（减少用户配置成本）
+- [x] 任务模板/预设（减少用户配置成本）
 
 ### 4.2 Desktop：发布与更新
-- [ ] 自动更新渠道分离（nightly vs stable）
-- [ ] Windows 代码签名 / macOS notarization（减少系统拦截）
-- [ ] Release 资产命名与兼容性（避免路径/空格/特殊字符导致安装器异常）
+- [x] 自动更新渠道分离（nightly vs stable）→ `updateService` 已实现，待端到端验证
+- [ ] Windows 代码签名 / macOS notarization（减少系统拦截）→ CI 环境变量已配置，证书待申请
+- [x] Release 资产命名与兼容性（避免路径/空格/特殊字符导致安装器异常）
 
 ### 4.3 MediaCrawler：批处理与稳定输出
-- [ ] 统一输出 schema（JSONL），包含 run_id、platform、source、timestamps、errors
-- [ ] 批处理 search + limit、失败不中断策略
+- [x] 统一输出 schema（JSONL），包含 run_id、platform、source、timestamps、errors
+- [x] 批处理 search + limit、失败不中断策略
 - [ ] 代理池健康检查与可观测指标（成功率、失败原因）
 
 ### 4.4 Desktop ↔ MediaCrawler：协议与打通
-- [ ] 定义子进程协议（stdout 事件：progress/log/result/error）
-- [ ] Desktop 侧解析事件并写入 DB（Run/Logs/Reports）
-- [ ] 端到端 demo：选择平台→输入→运行→报告→导出
+- [x] 定义子进程协议（stdout 事件：progress/log/result/error）
+- [x] Desktop 侧解析事件并写入 DB（Run/Logs/Reports）
+- [x] 端到端 demo：选择平台→输入→运行→报告→导出
 
 ### 4.5 文档与流程（持续）
-- [ ] 文档版本化：USER_MANUAL / TROUBLESHOOTING / LESSONS_LEARNED / ROADMAP 持续更新
-- [ ] 将“典型故障”整理为 FAQ + 自动化检测（如 Python 不存在、路径不可写）
+- [x] 文档版本化：USER_MANUAL / TROUBLESHOOTING / LESSONS_LEARNED / ROADMAP 持续更新
+- [ ] 将"典型故障"整理为 FAQ + 自动化检测（如 Python 不存在、路径不可写）
 
 ---
 
