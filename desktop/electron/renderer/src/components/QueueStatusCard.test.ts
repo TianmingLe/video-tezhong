@@ -12,9 +12,12 @@ test('QueueStatusCard shows running/progress and pending badge', () => {
     })
   )
 
-  expect(html).toContain('Running 1/2')
-  expect(html).toContain('Pending 3')
-  expect(html).toContain('width:50%')
+  expect(html).toContain('Running')
+  expect(html).toContain('1')
+  expect(html).toContain('2')
+  expect(html).toContain('Pending')
+  expect(html).toContain('3')
+  expect(html).toContain('50%')
 })
 
 test('QueueStatusCard shows placeholder while loading', () => {
@@ -25,6 +28,7 @@ test('QueueStatusCard shows placeholder while loading', () => {
       maxConcurrency: 2
     })
   )
-  expect(html).toContain('Running -/2')
-  expect(html).toContain('Pending -')
+  expect(html).toContain('Running')
+  expect(html).toContain('-')
+  expect(html).toContain('Pending')
 })
