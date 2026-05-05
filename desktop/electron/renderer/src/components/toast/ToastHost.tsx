@@ -68,8 +68,7 @@ export function ToastHost() {
             className={`toast toast-${variant}`}
             role="status"
             style={{
-              animationDelay: `${index * 50}ms`,
-              borderLeft: `3px solid var(--accent-${variant === 'default' ? 'primary' : variant})`
+              animationDelay: `${index * 50}ms`
             }}
           >
             <ToastIcon variant={variant} />
