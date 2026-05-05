@@ -37,3 +37,9 @@ class RunContext:
     def kb_summary_path(self) -> Path:
         return self.run_dir() / f"kb_summary_{self.run_id}.md"
 
+    def batch_summary_path(self) -> Path:
+        return self.run_dir() / f"batch_summary_{self.run_id}.json"
+
+    def batch_results_path(self) -> Path:
+        return self.run_dir() / f"batch_results_{self.run_id}.jsonl"
+

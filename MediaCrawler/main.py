@@ -195,6 +195,10 @@ async def main() -> None:
             )
 
             if not bool(getattr(args, "dry_run", False)):
+                summary_path = ctx.batch_summary_path()
+                if summary_path.exists():
+                    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+                    print(f"[BATCH] 成功: {summary.get('success', 0)}, 失败: {summary.get('failed', 0)}, 跳过: {summary.get('skipped', 0)}")
                 kb = KnowledgeBase(run_dir=ctx.run_dir(), run_id=run_id)
                 kb.build(use_llm=False)
                 print(f"[SUCCESS] 知识库聚合完成: {ctx.kb_summary_path()}")

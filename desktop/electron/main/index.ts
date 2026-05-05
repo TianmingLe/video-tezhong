@@ -724,6 +724,18 @@ app.whenReady().then(() => {
     return await checkPython()
   })
 
+  ipcMain.handle(ipcChannels.appGetVersion, async () => {
+    const commitHash = (process.env.COMMIT_HASH || '').slice(0, 7) || 'dev'
+    return {
+      version: app.getVersion(),
+      commitHash,
+      isNightly: process.env.BUILD_CHANNEL === 'nightly',
+      electronVersion: process.versions.electron,
+      chromeVersion: process.versions.chrome,
+      nodeVersion: process.versions.node
+    }
+  })
+
   ipcMain.handle(ipcChannels.appGetDbState, async () => {
     return { isReadOnly: dbState.isReadOnly }
   })

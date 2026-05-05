@@ -6,7 +6,8 @@ const items: Array<{ to: string; label: string }> = [
   { to: '/reports', label: '报告' },
   { to: '/cluster', label: '聚类' },
   { to: '/kb', label: '知识库' },
-  { to: '/settings', label: '设置' }
+  { to: '/settings', label: '设置' },
+  { to: '/about', label: '关于' }
 ]
 
 export function SidebarNav() {

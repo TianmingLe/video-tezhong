@@ -64,6 +64,15 @@ export type LogsCleanupResult = { success: true; deleted: number } | { success: 
 
 export type FeedbackCollectBundleResult = { markdown: string }
 
+export type AppVersionInfo = {
+  version: string
+  commitHash: string
+  isNightly: boolean
+  electronVersion: string
+  chromeVersion: string
+  nodeVersion: string
+}
+
 export type AppUninstallResult = { success: true } | { success: false; error: string }
 
 export type JobListRunArtifactsResult =
@@ -147,6 +156,7 @@ export type DesktopApi = {
   app: {
     onNavigate: (callback: (ev: AppNavigateEvent) => void) => () => void
     onNotify: (callback: (ev: AppNotifyEvent) => void) => () => void
+    getVersion: () => Promise<AppVersionInfo>
     getDbState: () => Promise<DbState>
     uninstall: () => Promise<AppUninstallResult>
   }

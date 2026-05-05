@@ -27,6 +27,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Determine release type
+        id: release_type
+        shell: bash
+        run: |
+          REF_NAME="${GITHUB_REF_NAME:-}"
+          if echo "$REF_NAME" | grep -q -- '-beta'; then
+            echo "type=beta" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "make_latest=false" >> "$GITHUB_OUTPUT"
+            echo "channel=Beta" >> "$GITHUB_OUTPUT"
+          elif echo "$REF_NAME" | grep -q -- '-rc'; then
+            echo "type=rc" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "make_latest=false" >> "$GITHUB_OUTPUT"
+            echo "channel=Release Candidate" >> "$GITHUB_OUTPUT"
+          else
+            echo "type=stable" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "make_latest=true" >> "$GITHUB_OUTPUT"
+            echo "channel=Stable" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -61,6 +83,8 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          COMMIT_HASH: ${{ github.sha }}
+          BUILD_CHANNEL: 'release'
         run: npm run dist
 
       - name: Upload artifacts
@@ -83,12 +107,44 @@ jobs:
         with:
           path: artifacts
 
+      - name: Determine release type
+        id: release_type
+        shell: bash
+        run: |
+          REF_NAME="${GITHUB_REF_NAME:-}"
+          if echo "$REF_NAME" | grep -q -- '-beta'; then
+            echo "type=beta" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "make_latest=false" >> "$GITHUB_OUTPUT"
+            echo "channel=Beta" >> "$GITHUB_OUTPUT"
+          elif echo "$REF_NAME" | grep -q -- '-rc'; then
+            echo "type=rc" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "make_latest=false" >> "$GITHUB_OUTPUT"
+            echo "channel=Release Candidate" >> "$GITHUB_OUTPUT"
+          else
+            echo "type=stable" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "make_latest=true" >> "$GITHUB_OUTPUT"
+            echo "channel=Stable" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           draft: false
-          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
-          make_latest: ${{ !(contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc')) }}
+          prerelease: ${{ steps.release_type.outputs.prerelease }}
+          make_latest: ${{ steps.release_type.outputs.make_latest }}
+          body: |
+            ## ${{ steps.release_type.outputs.channel }} Release ${{ github.ref_name }}
+
+            **Commit:** `${{ github.sha }}`
+
+            ### Installation
+            Download the installer for your platform from the assets below.
+
+            ---
+            _This release was automatically generated from tag ${{ github.ref_name }}_
           files: |
             artifacts/**/release/latest*.yml
             artifacts/**/release/*.blockmap

@@ -11,6 +11,7 @@ const ReportPage = lazy(() => import('../pages/ReportPage').then((m) => ({ defau
 const ClusterPage = lazy(() => import('../pages/ClusterPage').then((m) => ({ default: m.ClusterPage })))
 const KnowledgeBasePage = lazy(() => import('../pages/KnowledgeBasePage').then((m) => ({ default: m.KnowledgeBasePage })))
 const SettingsPage = lazy(() => import('../pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
+const AboutPage = lazy(() => import('../pages/AboutPage').then((m) => ({ default: m.AboutPage })))
 
 const router = createBrowserRouter([
   { path: '/onboarding', element: <OnboardingPage /> },
@@ -58,6 +59,14 @@ const router = createBrowserRouter([
         element: (
           <Suspense fallback={<Skeleton />}>
             <SettingsPage />
+          </Suspense>
+        )
+      },
+      {
+        path: 'about',
+        element: (
+          <Suspense fallback={<Skeleton />}>
+            <AboutPage />
           </Suspense>
         )
       }

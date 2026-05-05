@@ -1,9 +1,11 @@
 import asyncio
 import json
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Protocol
 
+import config
 from services.processed_registry import ProcessedRegistry
 from services.run_context import RunContext
 from services.search_reader import VideoCandidate
@@ -95,9 +97,20 @@ class BatchProcessor:
 
         semaphore = asyncio.Semaphore(concurrent_limit if concurrent_limit > 0 else 1)
 
+        batch_results: List[Dict[str, Any]] = []
+
         async def _run_one(i: int, c: VideoCandidate) -> None:
             out_analysis_path = self.run_context.output_path(kind="mvp_analysis", index=i, aweme_id=c.aweme_id)
             if out_analysis_path.exists() or registry.is_processed(c.aweme_id):
+                batch_results.append({
+                    "run_id": self.run_context.run_id,
+                    "platform": str(getattr(config, "PLATFORM", "")),
+                    "aweme_id": c.aweme_id,
+                    "status": "skipped",
+                    "error_code": None,
+                    "error_message": None,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                })
                 return
 
             async with semaphore:
@@ -132,6 +145,15 @@ class BatchProcessor:
                             output_format=output_format,
                         )
                         registry.append_success(c.aweme_id)
+                        batch_results.append({
+                            "run_id": self.run_context.run_id,
+                            "platform": str(getattr(config, "PLATFORM", "")),
+                            "aweme_id": c.aweme_id,
+                            "status": "success",
+                            "error_code": None,
+                            "error_message": None,
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                        })
                         self._emit(
                             ProgressEvent(
                                 index=i,
@@ -152,6 +174,15 @@ class BatchProcessor:
                             failed_stage="unknown",
                             error_code="ERR_BATCH_RUN_ONE",
                         )
+                        batch_results.append({
+                            "run_id": self.run_context.run_id,
+                            "platform": str(getattr(config, "PLATFORM", "")),
+                            "aweme_id": c.aweme_id,
+                            "status": "failed",
+                            "error_code": "ERR_BATCH_RUN_ONE",
+                            "error_message": str(e),
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                        })
                         self._emit(
                             ProgressEvent(
                                 index=i,
@@ -166,3 +197,29 @@ class BatchProcessor:
 
         tasks = [asyncio.create_task(_run_one(i + 1, c)) for i, c in enumerate(ordered)]
         await asyncio.gather(*tasks)
+
+        summary = {
+            "run_id": self.run_context.run_id,
+            "total": len(ordered),
+            "success": sum(1 for r in batch_results if r["status"] == "success"),
+            "failed": sum(1 for r in batch_results if r["status"] == "failed"),
+            "skipped": sum(1 for r in batch_results if r["status"] == "skipped"),
+        }
+
+        summary_path = self.run_context.run_dir() / f"batch_summary_{self.run_context.run_id}.json"
+        self._write_json(summary_path, summary)
+
+        batch_jsonl_path = self.run_context.run_dir() / f"batch_results_{self.run_context.run_id}.jsonl"
+        batch_jsonl_path.parent.mkdir(parents=True, exist_ok=True)
+        with batch_jsonl_path.open("w", encoding="utf-8") as f:
+            for r in batch_results:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+
+        self._emit(ProgressEvent(
+            index=0,
+            total=len(ordered),
+            aweme_id="",
+            stage="batch_complete",
+            status="done",
+            message=f"批处理完成: 成功 {summary['success']}, 失败 {summary['failed']}, 跳过 {summary['skipped']}",
+        ))

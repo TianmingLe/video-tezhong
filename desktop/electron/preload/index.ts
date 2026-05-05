@@ -143,6 +143,9 @@ const api: DesktopApi = {
       ipcRenderer.on(ipcChannels.appNotify, handler as never)
       return () => ipcRenderer.removeListener(ipcChannels.appNotify, handler as never)
     },
+    getVersion: async () => {
+      return await ipcRenderer.invoke(ipcChannels.appGetVersion)
+    },
     getDbState: async () => {
       return await ipcRenderer.invoke(ipcChannels.appGetDbState)
     },

@@ -56,6 +56,8 @@ jobs:
         working-directory: desktop
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          COMMIT_HASH: ${{ github.sha }}
+          BUILD_CHANNEL: 'nightly'
         run: npm run dist
 
       - name: Append short sha to installers (linux/macos)
@@ -92,6 +94,30 @@ jobs:
           path: desktop/release/**
           if-no-files-found: error
 
+      - name: Summarize failure
+        if: failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "::error::Nightly build failed on ${{ matrix.os }}"
+          echo "## :x: Build Failure Summary (${{ matrix.os }})" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Possible Causes" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f "desktop/package-lock.json" ]; then
+            echo "- ✅ package-lock.json exists" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- ❌ package-lock.json missing — run \`npm install\` in desktop/" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "- Check test output above for failing tests" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Check typecheck output for type errors" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Check build output for bundling errors" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Quick Fixes" >> "$GITHUB_STEP_SUMMARY"
+          echo "1. Run \`npm test\` locally in desktop/" >> "$GITHUB_STEP_SUMMARY"
+          echo "2. Run \`npm run typecheck\` locally in desktop/" >> "$GITHUB_STEP_SUMMARY"
+          echo "3. Run \`npm run build\` locally in desktop/" >> "$GITHUB_STEP_SUMMARY"
+
   release:
     name: Publish nightly release
     runs-on: ubuntu-latest
@@ -118,6 +144,30 @@ jobs:
           git tag -f nightly "$GITHUB_SHA"
           git push -f origin nightly
 
+      - name: Generate release notes
+        id: notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          COMMIT_LOG=$(git log --oneline -10 --no-decorate 2>/dev/null || echo "N/A")
+          {
+            echo "notes<<NOTES_EOF"
+            echo "## Nightly Build"
+            echo ""
+            echo "**Commit:** \`${SHORT_SHA}\`"
+            echo ""
+            echo "### Recent Commits"
+            echo ""
+            echo "\`\`\`"
+            echo "${COMMIT_LOG}"
+            echo "\`\`\`"
+            echo ""
+            echo "---"
+            echo "_Auto-generated nightly build from main branch_"
+            echo "NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Ensure nightly release exists
         shell: bash
         env:
@@ -125,9 +175,9 @@ jobs:
         run: |
           set -euo pipefail
           if gh release view nightly >/dev/null 2>&1; then
-            gh release edit nightly --prerelease --title nightly --notes "Nightly build for ${GITHUB_SHA}"
+            gh release edit nightly --prerelease --title "nightly (${GITHUB_SHA:0:7})" --notes "${{ steps.notes.outputs.notes }}"
           else
-            gh release create nightly --prerelease --title nightly --notes "Nightly build for ${GITHUB_SHA}"
+            gh release create nightly --prerelease --title "nightly (${GITHUB_SHA:0:7})" --notes "${{ steps.notes.outputs.notes }}"
           fi
 
       - name: Upload new assets
@@ -143,3 +193,20 @@ jobs:
             -name 'latest*.yml' -o \
             -name '*.blockmap' \
           \) -print0 | xargs -0 gh release upload nightly --clobber
+
+      - name: Summarize release failure
+        if: failure()
+        shell: bash
+        run: |
+          echo "::error::Nightly release publishing failed"
+          echo "## :x: Release Publishing Failure" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Possible Causes" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Tag push failed (permissions issue)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Asset upload failed (file size or network)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Release creation failed (API rate limit)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Quick Fixes" >> "$GITHUB_STEP_SUMMARY"
+          echo "1. Verify \`contents: write\` permission is set" >> "$GITHUB_STEP_SUMMARY"
+          echo "2. Check if nightly tag exists and can be force-updated" >> "$GITHUB_STEP_SUMMARY"
+          echo "3. Re-run the workflow manually" >> "$GITHUB_STEP_SUMMARY"
