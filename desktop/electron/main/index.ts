@@ -16,6 +16,7 @@ import treeKill from 'tree-kill'
 import { createJobRuntime } from './job/jobRuntime'
 import electronUpdater from 'electron-updater'
 import { UpdateService } from './update/UpdateService'
+import { validateUpdateConfig } from './update/UpdateValidator'
 import { createOnboardingStore } from './onboarding/onboardingStore'
 import { checkPython } from './system/checkPython'
 import { uninstallSelf } from './system/windowsUninstall'
@@ -29,6 +30,10 @@ import { createLlmClient } from './llm/llmClient'
 import { createAggregateStore } from './aggregate/aggregateStore'
 import { createClusterStore } from './cluster/clusterStore'
 import { assertPathInside } from './fs/pathSafety'
+import { classifyErrorWithContext } from './error/ErrorClassifier'
+// @ts-ignore
+import { runDesktopDiagnostics } from '../../scripts/diagnose_desktop.js'
+import type { DiagnosticsResult } from '../../scripts/diagnose_desktop.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -255,11 +260,20 @@ app.whenReady().then(() => {
 
     if (script === 'mediacrawler') {
       const v = validateMediaCrawlerTaskSpec(o.payload)
-      if (!v.ok) return { success: false as const, error: v.error }
-      if (v.value.runId !== runId) return { success: false as const, error: 'payload.runId mismatch' }
+      if (!v.ok) {
+        const classified = classifyErrorWithContext(new Error(v.error), { operation: 'jobStart', runId })
+        return { success: false as const, error: classified.userMessage, classified }
+      }
+      if (v.value.runId !== runId) {
+        const classified = classifyErrorWithContext(new Error('payload.runId mismatch'), { operation: 'jobStart', runId })
+        return { success: false as const, error: classified.userMessage, classified }
+      }
 
       const py = await checkPython()
-      if (!py.ok) return { success: false as const, error: `${py.error}\n${py.suggestion}` }
+      if (!py.ok) {
+        const classified = classifyErrorWithContext(new Error(py.error), { operation: 'jobStart', runId })
+        return { success: false as const, error: classified.userMessage, classified }
+      }
 
       const devRoot = path.resolve(__dirname, '../../../..')
       const mediaCrawlerRoot = resolveMediaCrawlerRoot({
@@ -280,7 +294,10 @@ app.whenReady().then(() => {
         systemPythonVersion: py.version
       })
       const ensured = await envManager.ensureMediacrawlerEnv({ pythonIndexUrl: v.value.pythonIndexUrl })
-      if (!ensured.ok) return { success: false as const, error: `${ensured.error}\n${ensured.suggestion}` }
+      if (!ensured.ok) {
+        const classified = classifyErrorWithContext(new Error(ensured.error), { operation: 'jobStart', runId })
+        return { success: false as const, error: classified.userMessage, classified }
+      }
 
       const taskSpecJson = JSON.stringify(v.value)
       const specForRun = { ...v.value, args: { ...(v.value.args || {}) } }
@@ -317,7 +334,12 @@ app.whenReady().then(() => {
         args: ['--scenario', 'mediacrawler', '--task-json', taskJsonPath]
       }
 
-      return await jobRuntime.enqueue(req as never)
+      try {
+        return await jobRuntime.enqueue(req as never)
+      } catch (e) {
+        const classified = classifyErrorWithContext(e, { operation: 'jobStart', runId })
+        return { success: false as const, error: classified.userMessage, classified }
+      }
     }
 
     if (script.includes('..') || script.includes('\\') || script.startsWith('/') || script.startsWith('~')) {
@@ -427,7 +449,8 @@ app.whenReady().then(() => {
       const text = buf.subarray(0, size).toString('utf-8')
       return { success: true as const, text }
     } catch (e) {
-      return { success: false as const, error: String((e as any)?.message ?? e) }
+      const classified = classifyErrorWithContext(e, { operation: 'jobReadRunFile', runId })
+      return { success: false as const, error: classified.userMessage, classified }
     }
   })
 
@@ -447,7 +470,12 @@ app.whenReady().then(() => {
     const o = (input && typeof input === 'object' ? (input as Record<string, unknown>) : null) ?? {}
     const keepRaw = Number(o.keep)
     const keep = Number.isFinite(keepRaw) ? keepRaw : undefined
-    return await logCleanup.cleanup({ keep })
+    try {
+      return await logCleanup.cleanup({ keep })
+    } catch (e) {
+      const classified = classifyErrorWithContext(e, { operation: 'logsCleanup' })
+      return { success: false as const, error: classified.userMessage, classified }
+    }
   })
 
   ipcMain.handle(ipcChannels.feedbackCollectBundle, async (_evt, input: unknown) => {
@@ -724,6 +752,11 @@ app.whenReady().then(() => {
     return await checkPython()
   })
 
+  ipcMain.handle(ipcChannels.systemRunDiagnostics, async () => {
+    const projectRoot = path.resolve(__dirname, '../../..')
+    return await runDesktopDiagnostics({ userDataPath, projectRoot })
+  })
+
   ipcMain.handle(ipcChannels.appGetVersion, async () => {
     const commitHash = (process.env.COMMIT_HASH || '').slice(0, 7) || 'dev'
     return {
@@ -744,7 +777,24 @@ app.whenReady().then(() => {
     return await uninstallSelf()
   })
 
+  ipcMain.handle(ipcChannels.updateValidate, async () => {
+    const result = validateUpdateConfig({
+      buildChannel: process.env.BUILD_CHANNEL,
+      updateServerUrl: process.env.UPDATE_SERVER_URL,
+      feedURL: ((electronUpdater.autoUpdater as any).feedURL as string | undefined) ?? undefined
+    })
+    return result
+  })
+
   ipcMain.handle(ipcChannels.updateCheck, async () => {
+    const validation = validateUpdateConfig({
+      buildChannel: process.env.BUILD_CHANNEL,
+      updateServerUrl: process.env.UPDATE_SERVER_URL,
+      feedURL: ((electronUpdater.autoUpdater as any).feedURL as string | undefined) ?? undefined
+    })
+    if (!validation.ok) {
+      return { status: 'error' as const, error: validation.errors.join('; ') }
+    }
     return await updateService.check()
   })
 

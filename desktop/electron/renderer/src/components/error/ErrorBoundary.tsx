@@ -1,6 +1,8 @@
 import React from 'react'
 import { copyToClipboard } from './copyToClipboard'
 import { formatErrorReport } from './formatErrorReport'
+import { ErrorMessage } from './ErrorMessage'
+import { classifyError } from '../../../../main/error/ErrorClassifier'
 
 type ErrorBoundaryProps = {
   children: React.ReactNode
@@ -86,7 +88,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   render() {
     if (!this.state.error) return this.props.children
 
-    const message = getErrorMessage(this.state.error)
+    const classified = classifyError(this.state.error)
     const errorStack = this.state.error instanceof Error ? String(this.state.error.stack || '') : ''
     const combinedStack = [errorStack.trim(), this.state.componentStack.trim()].filter(Boolean).join('\n\n')
 
@@ -161,7 +163,15 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
           <h1 style={titleStyle}>页面发生错误</h1>
           <div style={subtitleStyle}>可以尝试复制错误信息并反馈，或返回任务页继续使用。</div>
 
-          <div style={codeStyle}>{message}</div>
+          <div style={{ marginTop: 12 }}>
+            <ErrorMessage
+              category={classified.category}
+              code={classified.code}
+              userMessage={classified.userMessage}
+              suggestion={classified.suggestion}
+              devDetail={classified.devDetail}
+            />
+          </div>
 
           <details style={{ marginTop: 12 }}>
             <summary style={{ cursor: 'pointer', opacity: 0.9, fontSize: 13 }}>查看堆栈</summary>

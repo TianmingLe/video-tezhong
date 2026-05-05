@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { ConfigRecord, TrayConfig, TrayLeftClickMode } from '../../../preload/types'
+import type { ConfigRecord, TrayConfig, TrayLeftClickMode, UpdateValidationResult, DiagnosticsResult, DiagnosticCheck } from '../../../preload/types'
 import { RetryButton } from '../components/RetryButton'
 import { useDbState } from '../contexts/DbStateContext'
 import { toastStore } from '../components/toast/toastStore'
@@ -28,6 +28,10 @@ export function SettingsPage() {
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [feedbackDesc, setFeedbackDesc] = useState('')
   const [feedbackGenerating, setFeedbackGenerating] = useState(false)
+  const [updateValidation, setUpdateValidation] = useState<UpdateValidationResult | null>(null)
+  const [updateValidationLoading, setUpdateValidationLoading] = useState(false)
+  const [diagnostics, setDiagnostics] = useState<DiagnosticsResult | null>(null)
+  const [diagnosticsLoading, setDiagnosticsLoading] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -162,6 +166,36 @@ export function SettingsPage() {
       toastStore.dismiss(checkingToastId)
       toastStore.show({ title: '更新', message: `检查更新失败：${String((e as Error)?.message || e)}` })
     }
+  }
+
+  const validateUpdate = async () => {
+    setUpdateValidationLoading(true)
+    try {
+      const result = await window.api.update.validate()
+      setUpdateValidation(result)
+    } catch (e) {
+      toastStore.show({ title: '更新配置检查', message: `检查失败：${String((e as Error)?.message || e)}` })
+    } finally {
+      setUpdateValidationLoading(false)
+    }
+  }
+
+  const runDiagnostics = async () => {
+    setDiagnosticsLoading(true)
+    try {
+      const result = await window.api.system.runDiagnostics()
+      setDiagnostics(result)
+    } catch (e) {
+      toastStore.show({ title: '诊断', message: `运行失败：${String((e as Error)?.message || e)}` })
+    } finally {
+      setDiagnosticsLoading(false)
+    }
+  }
+
+  const statusColor = (status: DiagnosticCheck['status']) => {
+    if (status === 'ok') return '#2e7d32'
+    if (status === 'warning') return '#f9a825'
+    return '#d32f2f'
   }
 
   const restartOnboarding = async () => {
@@ -323,7 +357,69 @@ export function SettingsPage() {
           <button type="button" className="btn" onClick={checkUpdate}>
             检查更新
           </button>
+          <button type="button" className="btn" onClick={validateUpdate} disabled={updateValidationLoading}>
+            更新配置检查
+          </button>
         </div>
+        {updateValidation ? (
+          <div style={{ marginTop: 10 }}>
+            {updateValidation.ok ? (
+              <div className="muted">配置正常</div>
+            ) : (
+              <div className="muted" style={{ color: '#d32f2f' }}>
+                错误：{updateValidation.errors.join('；')}
+              </div>
+            )}
+            {updateValidation.warnings.length > 0 ? (
+              <div className="muted" style={{ color: '#f9a825', marginTop: 4 }}>
+                警告：{updateValidation.warnings.join('；')}
+              </div>
+            ) : null}
+            {updateValidation.feedURL ? (
+              <div className="muted" style={{ marginTop: 4 }}>
+                feedURL：{updateValidation.feedURL}
+              </div>
+            ) : null}
+            {updateValidation.channel ? (
+              <div className="muted" style={{ marginTop: 4 }}>
+                通道：{updateValidation.channel}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="card" style={{ marginTop: 16, maxWidth: 520 }}>
+        <div className="row" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="label" style={{ marginBottom: 0 }}>
+            系统诊断
+          </div>
+          <button type="button" className="btn" onClick={runDiagnostics} disabled={diagnosticsLoading}>
+            运行诊断
+          </button>
+          {diagnosticsLoading ? <div className="muted">诊断中…</div> : null}
+        </div>
+        {diagnostics ? (
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontWeight: 600, color: statusColor(diagnostics.overall_status) }}>
+              {diagnostics.summary}
+            </div>
+            <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: '1fr auto', gap: 8 }}>
+              {diagnostics.checks.map((c) => (
+                <div key={c.name} style={{ display: 'contents' }}>
+                  <div className="muted">{c.name}</div>
+                  <div style={{ color: statusColor(c.status), fontWeight: 500 }}>{c.status}</div>
+                  <div className="muted" style={{ fontSize: 12 }}>{c.detail}</div>
+                  {c.suggestion ? (
+                    <div className="muted" style={{ fontSize: 12, color: '#d32f2f' }}>{c.suggestion}</div>
+                  ) : (
+                    <div />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="card" style={{ marginTop: 16, maxWidth: 520 }}>

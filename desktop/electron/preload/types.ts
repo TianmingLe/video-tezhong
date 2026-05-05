@@ -3,6 +3,7 @@ import type { UpdateEvent, UpdateInstallResult, UpdateState } from '../main/upda
 import type { OnboardingState } from '../main/onboarding/onboardingStore'
 import type { CheckPythonResult } from '../main/system/checkPython'
 import type { StartupMetricsSnapshot } from '../main/perf/startupMetrics'
+import type { UpdateValidationResult } from '../main/update/UpdateValidator'
 
 export type JobConfig = {
   runId: string
@@ -48,6 +49,7 @@ export type { TaskRecord, ConfigRecord, TaskStatus } from '../main/db/types'
 export type { OnboardingState } from '../main/onboarding/onboardingStore'
 export type { CheckPythonResult } from '../main/system/checkPython'
 export type { UpdateState, UpdateEvent, UpdateInstallResult } from '../main/update/UpdateService'
+export type { UpdateValidationResult } from '../main/update/UpdateValidator'
 
 export type JobQueueStatus = {
   running: string[]
@@ -100,6 +102,19 @@ export type ClusterSaved = { dirName: string; dirPath: string; files: string[] }
 export type ClusterListItem = { dirName: string; dirPath: string; mtimeMs: number }
 export type ClusterDeleteResult = { success: true } | { success: false; error: string }
 export type ClusterExportResult = { success: true; dirPath: string } | { success: false; error: string }
+
+export type DiagnosticCheck = {
+  name: string
+  status: 'ok' | 'warning' | 'error'
+  detail: string
+  suggestion?: string
+}
+
+export type DiagnosticsResult = {
+  overall_status: 'ok' | 'warning' | 'error'
+  checks: DiagnosticCheck[]
+  summary: string
+}
 
 export type DesktopApi = {
   version: string
@@ -164,10 +179,12 @@ export type DesktopApi = {
     check: () => Promise<UpdateState>
     install: () => Promise<UpdateInstallResult>
     getState: () => Promise<UpdateState>
+    validate: () => Promise<UpdateValidationResult>
     onEvent: (callback: (ev: UpdateEvent) => void) => () => void
   }
   system: {
     checkPython: () => Promise<CheckPythonResult>
+    runDiagnostics: () => Promise<DiagnosticsResult>
   }
   perf: {
     getStartup: () => Promise<StartupMetricsSnapshot>

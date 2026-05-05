@@ -22,7 +22,7 @@
 # @Time    : 2023/12/2 13:45
 # @Desc    : IP proxy pool implementation
 import random
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import httpx
 from tenacity import retry, stop_after_attempt, wait_fixed
@@ -33,6 +33,7 @@ from proxy.providers import (
     new_kuai_daili_proxy,
     new_wandou_http_proxy,
 )
+from services.proxy_health_monitor import ProxyHealthMonitor
 from tools import utils
 
 from .base_proxy import ProxyProvider
@@ -57,6 +58,7 @@ class ProxyIpPool:
         self.proxy_list: List[IpInfoModel] = []
         self.ip_provider: ProxyProvider = ip_provider
         self.current_proxy: IpInfoModel | None = None  # Currently used proxy
+        self.health_monitor = ProxyHealthMonitor()
 
     async def load_proxies(self) -> None:
         """
@@ -103,13 +105,23 @@ class ProxyIpPool:
         if len(self.proxy_list) == 0:
             await self._reload_proxies()
 
+        self.proxy_list = self._filter_banned_proxies(self.proxy_list)
+        if len(self.proxy_list) == 0:
+            await self._reload_proxies()
+
         proxy = random.choice(self.proxy_list)
         self.proxy_list.remove(proxy)  # Remove an IP once extracted
         if self.enable_validate_ip:
-            if not await self._is_valid_proxy(proxy):
-                raise Exception(
-                    "[ProxyIpPool.get_proxy] current ip invalid and again get it"
-                )
+            try:
+                if not await self._is_valid_proxy(proxy):
+                    self.health_monitor.record_failure(proxy.ip, "invalid_proxy")
+                    raise Exception(
+                        "[ProxyIpPool.get_proxy] current ip invalid and again get it"
+                    )
+                self.health_monitor.record_success(proxy.ip, 0.0)
+            except Exception as e:
+                self.health_monitor.record_failure(proxy.ip, str(type(e).__name__))
+                raise e
         self.current_proxy = proxy  # Save currently used proxy
         return proxy
 
@@ -148,6 +160,19 @@ class ProxyIpPool:
         """
         self.proxy_list = []
         await self.load_proxies()
+
+    def _filter_banned_proxies(self, proxy_list: List[IpInfoModel]) -> List[IpInfoModel]:
+        banned = set(self.health_monitor.get_banned_proxies())
+        return [p for p in proxy_list if p.ip not in banned]
+
+    def get_health_report(self) -> Dict:
+        return self.health_monitor.get_health_report()
+
+    def record_proxy_success(self, proxy_ip: str, response_time_ms: float) -> None:
+        self.health_monitor.record_success(proxy_ip, response_time_ms)
+
+    def record_proxy_failure(self, proxy_ip: str, error_type: str) -> None:
+        self.health_monitor.record_failure(proxy_ip, error_type)
 
 
 IpProxyProvider: Dict[str, ProxyProvider] = {

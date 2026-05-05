@@ -163,6 +163,9 @@ const api: DesktopApi = {
     getState: async () => {
       return await ipcRenderer.invoke(ipcChannels.updateState)
     },
+    validate: async () => {
+      return await ipcRenderer.invoke(ipcChannels.updateValidate)
+    },
     onEvent: (callback) => {
       const handler = (_evt: unknown, payload: unknown) => callback(payload as never)
       ipcRenderer.on(ipcChannels.updateEvent, handler as never)
@@ -172,6 +175,9 @@ const api: DesktopApi = {
   system: {
     checkPython: async () => {
       return await ipcRenderer.invoke(ipcChannels.systemCheckPython)
+    },
+    runDiagnostics: async () => {
+      return await ipcRenderer.invoke(ipcChannels.systemRunDiagnostics)
     }
   },
   perf: {
